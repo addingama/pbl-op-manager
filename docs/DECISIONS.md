@@ -71,6 +71,11 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
 
 - **Status**: Accepted
 - **Decision**: Store ratings/deltas as `Decimal(10,4)`; the engine computes in floating point and rounds each delta to 4 dp so replays are bit-identical; UI displays rounded integers.
+- **Implementation (M1, `@pbl/elo-engine` `ENGINE_VERSION` 1.0.0)**:
+  - Team 1's delta is rounded to 4 dp with `Math.round` semantics (half toward +∞, never `-0`).
+  - Team 2 receives its exact negation, so every match is exactly zero-sum.
+  - Each `ratingAfter` is rounded to 4 dp again.
+  - Display uses `Math.round` to an integer.
 
 ## ADR-011 — Time zone
 
