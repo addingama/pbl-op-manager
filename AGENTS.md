@@ -3,12 +3,15 @@
 Single source of truth for AI coding agents (Cursor, Codex, Claude Code). `CLAUDE.md` only points here. Keep this file short; details live in `docs/`. If this file and `docs/` disagree, `docs/DECISIONS.md` wins — then fix this file.
 
 ## Purpose
+
 Mobile-first PWA to run padel **Open Play** sessions at PBL: register participants, generate doubles matches across courts, let admins swap players before a match starts, record Win/Loss results, and maintain a **lifetime individual Elo leaderboard**.
 
 ## Stack
+
 pnpm workspaces + Turborepo · Next.js App Router + TypeScript + Tailwind + shadcn/ui · Fastify + TypeScript · PostgreSQL 16 + Prisma · Zod · Vitest · Playwright · PWA (manifest + service worker) · Docker Compose + Nginx. Node 22. Strict TypeScript, few dependencies (new deps need a line in ADR-012).
 
 ## Monorepo layout (repo root = monorepo root, scope `@pbl/*`)
+
 ```
 apps/web               Next.js UI (no business logic)
 apps/api               Fastify: all business rules, authz, transactions
@@ -21,6 +24,7 @@ docs/                  PRD, ARCHITECTURE, DATABASE, ROADMAP, DECISIONS
 ```
 
 ## Key decisions (summary — see docs/DECISIONS.md)
+
 - **Auth**: only admins log in (email + argon2id, DB-session httpOnly cookie). Players have no accounts in MVP; everyone else is a read-only Guest. Every mutating endpoint requires an admin (ADR-005).
 - **Results**: admin-entered only — tap winning team → Confirm; round "Confirm all" is atomic. No player/unauthenticated submissions in MVP (ADR-014).
 - **Elo**: individual, lifetime; start 1000, K=32; team rating = average of 2; Expected(A)=1/(1+10^((RB−RA)/400)); Delta=32×(Result−Expected); teammates get the same delta; no decay; ranked after 10 completed matches. Pre-round snapshot for parallel matches. Canonical order = session start → round → court (ADR-015). Append-only ledger; corrections/late confirms trigger deterministic replay forward (ADR-006). Decimal(10,4) storage, integer display (ADR-010). Idempotent confirmation + advisory lock.
@@ -31,6 +35,7 @@ docs/                  PRD, ARCHITECTURE, DATABASE, ROADMAP, DECISIONS
 - **Agent context**: this file is the shared context for all agents (ADR-021).
 
 ## Rules for agents
+
 1. **One milestone at a time** (docs/ROADMAP.md). For each: state scope, implement the smallest complete solution, add tests, run `pnpm lint && pnpm typecheck && pnpm test`, report changed files + verification steps, then **stop and wait for Addin's approval**.
 2. Do not start a milestone or expand scope without approval. No features outside the PRD.
 3. **Never invent AYO endpoints**, never scrape behind auth, never request or store AYO passwords/tokens.
@@ -39,7 +44,17 @@ docs/                  PRD, ARCHITECTURE, DATABASE, ROADMAP, DECISIONS
 6. Conventional commits (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`). Do not push unless asked.
 7. React: function components only.
 
+## Commands
+
+```bash
+pnpm install                      # Node 22, pnpm 12 (see packageManager)
+pnpm lint && pnpm typecheck && pnpm test   # quality gates (Turborepo)
+pnpm format:check                 # Prettier
+pnpm db:up / pnpm db:down         # dev Postgres 16 on 127.0.0.1:5433 (docker-compose.dev.yml)
+```
+
 ## Docs
+
 - [docs/PRD.md](docs/PRD.md) — requirements, roles, MVP acceptance criteria (§8)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — services, module structure, flows, deployment
 - [docs/DATABASE.md](docs/DATABASE.md) — Prisma schema, rating ledger, idempotency, audit, AYO refs

@@ -9,12 +9,14 @@ A mobile-first, installable PWA for running padel **Open Play** sessions at PBL:
 ## 2. Goals and non-goals
 
 ### Goals
+
 - Run a live session from a phone with minimal taps (generate round → swap if needed → start → tap winner → confirm).
 - Fair scheduling: everyone plays roughly equal time, rests rotate, repeat partners/opponents minimized.
 - Trustworthy ratings: only admin-confirmed results affect Elo; history is immutable, auditable, and replayable.
 - Accept AYO "main bareng" share links and participant lists without relying on undocumented AYO APIs.
 
 ### Non-goals (MVP)
+
 - Score tracking (games/sets) in Elo. Win/Loss only.
 - Payments, court booking, chat, push notifications, tournaments/brackets.
 - Rating decay, team (pair) ratings, multiple rating pools.
@@ -25,11 +27,11 @@ A mobile-first, installable PWA for running padel **Open Play** sessions at PBL:
 
 ## 3. Users and roles
 
-| Role | Can do (MVP) |
-|---|---|
-| Guest (unauthenticated) | View public Open Play sessions, their rounds/matches, leaderboard, player profiles. Players at a venue use the app as Guests. |
+| Role                           | Can do (MVP)                                                                                                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Guest (unauthenticated)        | View public Open Play sessions, their rounds/matches, leaderboard, player profiles. Players at a venue use the app as Guests.                                |
 | Admin (only role that logs in) | Everything: manage players, sessions, participants, waiting lists, rounds, matches, swaps, enter/correct/cancel results, AYO import, settings, other admins. |
-| Player (post-MVP) | Planned later: account, self-registration, submit winner for own matches (admin confirmation still required). |
+| Player (post-MVP)              | Planned later: account, self-registration, submit winner for own matches (admin confirmation still required).                                                |
 
 Authorization is always enforced server-side: every mutating endpoint requires an authenticated admin. Only admin-entered results are official and Elo-affecting.
 
@@ -40,11 +42,13 @@ Open Play (session) → Rounds → Matches (one per court per round) → Teams (
 ## 5. Functional requirements
 
 ### 5.1 Players
+
 - FR-P1 Admin creates/edits/deactivates players (display name only; no contact details or other PII stored in MVP, ADR-019). Profile claiming by players is post-MVP.
 - FR-P2 Player profile: current Elo, rank or provisional status, matches played, W/L, win rate, peak Elo, rating history chart, monthly activity, recent matches.
 - FR-P3 Duplicate prevention: normalized-name matching warnings on create and on import.
 
 ### 5.2 Open Play sessions
+
 - FR-S1 Admin creates a session: title, date/time, venue, number of courts (≥1, editable while live), capacity (optional), visibility (public/private), format (Random, Balanced Elo, Mexicano, Americano, Fixed Partner), optional external reference (AYO; at most one session per AYO event).
 - FR-S2 Registration: admin registers players (individually, multi-select, or via AYO/paste import). When capacity is reached, new registrations go to a **waiting list** (FIFO); admin can promote/reorder. Self-registration is post-MVP (no player accounts).
 - FR-S3 Late join and early leave: participants can be added or marked "left" at any time; left players are excluded from future rounds but keep past matches.
@@ -52,6 +56,7 @@ Open Play (session) → Rounds → Matches (one per court per round) → Teams (
 - FR-S5 Session lifecycle: DRAFT → OPEN (registration) → LIVE → COMPLETED (or CANCELLED). Unlimited rounds while LIVE.
 
 ### 5.3 Round and match generation
+
 - FR-G1 Admin generates the next round automatically or builds it manually (assign players to court slots).
 - FR-G2 Modes (rules in ADR-017):
   - **Random** — random teams among players selected to play.
@@ -66,12 +71,14 @@ Open Play (session) → Rounds → Matches (one per court per round) → Teams (
 - FR-G7 Preview before commit is optional; the default is "generate and persist" with swaps available afterwards.
 
 ### 5.4 Player swap
+
 - FR-W1 Before a match starts, Admin can swap any two slots in the same round: same team, opposite teams, different courts, or playing ↔ resting.
 - FR-W2 Interaction: tap first player, tap second player → swap applied immediately and auto-persisted (optimistic UI with rollback on error). No regeneration, no forced rebalancing.
 - FR-W3 Swaps involving a match that has started (or finished/cancelled) are blocked with a clear message.
 - FR-W4 Every swap is audit-logged.
 
 ### 5.5 Results
+
 - FR-R1 Win/Loss only: result = winning team (1 or 2).
 - FR-R2 **Admin-entered only (MVP, ADR-014)**: on the match card the admin taps the winning team, then taps Confirm in a confirmation sheet → result is official and Elo is applied exactly once. Players tell the admin verbally at the court.
 - FR-R3 Admin may "Confirm all" for a round where winners have been selected but not yet confirmed (one confirmation sheet listing every match), to save taps at the end of a round.
@@ -80,6 +87,7 @@ Open Play (session) → Rounds → Matches (one per court per round) → Teams (
 - FR-R6 (Post-MVP) Player submissions with conflict flagging once player accounts exist; admin confirmation stays required.
 
 ### 5.6 Elo
+
 - Individual, lifetime. Initial rating 1000, K = 32, no decay.
 - Team rating = average of its two players' ratings.
 - Expected(A) = 1 / (1 + 10^((R_B − R_A)/400)); Delta(A) = 32 × (Result(A) − Expected(A)), Result ∈ {1, 0}.
@@ -93,11 +101,13 @@ Open Play (session) → Rounds → Matches (one per court per round) → Teams (
 - Monthly activity stats (matches, W/L per month) are separate from Elo.
 
 ### 5.7 Leaderboard
+
 - Lifetime Elo ranking of ranked players; provisional players listed separately (or toggle).
 - Columns: rank, name, Elo, provisional badge, matches played, W/L, win rate, peak Elo. Tap → player profile with rating history and monthly activity.
 - Optional monthly activity view (most matches / wins this month) — does not change Elo.
 
 ### 5.8 AYO import
+
 - FR-A1 Accept AYO share links (e.g. `https://link.ayo.co.id/l/main_bareng_293332_ref_ADDQEO`) and parse the external event ID (`293332`) and referral code.
 - FR-A2 Store external event reference on the session (provider `AYO`, external ID, original URL). One session per AYO event; linking an already-linked event shows the existing session (ADR-009).
 - FR-A3 MVP import = **manual paste** of participant names (one per line, tolerant of numbering/emoji/extra text).
@@ -107,9 +117,11 @@ Open Play (session) → Rounds → Matches (one per court per round) → Teams (
 - FR-A7 (Later, design only) Screenshot import with OCR → same preview step.
 
 ### 5.9 Settings (Admin)
+
 - Default generator mode and settings, default courts, ranked threshold (fixed at 10 for MVP, displayed), public visibility defaults, admin user management (add/remove admins, change own password).
 
 ## 6. UX requirements
+
 - Screens: Home, Open Play List, Open Play Detail, Participant Management, Live Match Manager, Match Generator, Leaderboard, Player Profile, Admin Settings, plus Admin Login.
 - Mobile-first (360–430 px primary), responsive up to desktop.
 - Touch targets ≥ 44×44 px; one tap to select winner, one tap to confirm.
@@ -119,6 +131,7 @@ Open Play (session) → Rounds → Matches (one per court per round) → Teams (
 - Accessibility: WCAG 2.1 AA contrast, keyboard operable, screen-reader labels, not color-only state.
 
 ## 7. Non-functional requirements
+
 - Strict TypeScript; business logic in pure domain packages independent of UI/HTTP.
 - All API inputs validated with Zod; meaningful error codes; structured logs.
 - DB transactions for round generation, swaps, confirmation, corrections; idempotency keys for confirmation and round generation.
@@ -143,4 +156,5 @@ The MVP is accepted when all of the following pass on a deployed (Docker Compose
 12. **Quality gates**: `pnpm lint`, `pnpm typecheck`, `pnpm test` pass in CI/locally; no `any` in domain packages.
 
 ## 9. Decisions
+
 All previously open questions are resolved; see DECISIONS.md (ADR-002, ADR-005, ADR-006, ADR-009, ADR-010, ADR-014 – ADR-020).

@@ -325,6 +325,7 @@ Swap = update `playerId` of two assignment rows in one transaction (the deferrab
 **Incremental confirm** (common): the confirmed match's `orderKey` is greater than every active transaction's `orderKey` of its 4 players → compute from current ratings, insert 4 rows under a new `INCREMENTAL` run, update projections.
 
 **Replay** (late confirm out of order, correction, cancelling a confirmed match, or admin "rebuild"):
+
 1. `pg_advisory_xact_lock(<elo lock id>)`.
 2. `from = min(orderKey of affected match, …)`.
 3. Load ratings as of just before `from` (latest active txn per player with `orderKey < from`).

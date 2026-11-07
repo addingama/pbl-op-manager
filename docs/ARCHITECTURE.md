@@ -83,41 +83,45 @@ src/
 
 ### Key endpoints (sketch)
 
-| Method | Path | Role |
-|---|---|---|
-| POST | /api/auth/login, /api/auth/logout; GET /api/auth/me | Public / Admin |
-| GET | /api/sessions, /api/sessions/:id (public sessions only for guests) | Guest |
-| POST/PATCH | /api/sessions, /api/sessions/:id | Admin |
-| POST/PATCH/DELETE | /api/sessions/:id/participants[/:playerId] | Admin |
-| POST | /api/sessions/:id/rounds (Idempotency-Key) | Admin |
-| POST | /api/rounds/:id/swaps | Admin |
-| POST | /api/rounds/:id/start, /api/matches/:id/start | Admin |
-| POST | /api/matches/:id/confirm { winnerTeam } (Idempotency-Key) | Admin |
-| POST | /api/rounds/:id/confirm-all { results[] } (Idempotency-Key) | Admin |
-| POST | /api/matches/:id/cancel, /api/matches/:id/correct { winnerTeam, reason } | Admin |
-| GET | /api/leaderboard, /api/players/:id, /api/players/:id/rating-history | Guest |
-| POST | /api/imports/ayo/parse-link, /api/imports/preview, /api/imports/commit | Admin |
+| Method            | Path                                                                     | Role           |
+| ----------------- | ------------------------------------------------------------------------ | -------------- |
+| POST              | /api/auth/login, /api/auth/logout; GET /api/auth/me                      | Public / Admin |
+| GET               | /api/sessions, /api/sessions/:id (public sessions only for guests)       | Guest          |
+| POST/PATCH        | /api/sessions, /api/sessions/:id                                         | Admin          |
+| POST/PATCH/DELETE | /api/sessions/:id/participants[/:playerId]                               | Admin          |
+| POST              | /api/sessions/:id/rounds (Idempotency-Key)                               | Admin          |
+| POST              | /api/rounds/:id/swaps                                                    | Admin          |
+| POST              | /api/rounds/:id/start, /api/matches/:id/start                            | Admin          |
+| POST              | /api/matches/:id/confirm { winnerTeam } (Idempotency-Key)                | Admin          |
+| POST              | /api/rounds/:id/confirm-all { results[] } (Idempotency-Key)              | Admin          |
+| POST              | /api/matches/:id/cancel, /api/matches/:id/correct { winnerTeam, reason } | Admin          |
+| GET               | /api/leaderboard, /api/players/:id, /api/players/:id/rating-history      | Guest          |
+| POST              | /api/imports/ayo/parse-link, /api/imports/preview, /api/imports/commit   | Admin          |
 
 ## 4. Critical flows
 
 ### 4.1 Round generation (idempotent)
+
 1. Admin taps "Generate" → client sends `POST /sessions/:id/rounds` with `Idempotency-Key` (UUID per tap intent).
 2. API: begin tx → `SELECT … FOR UPDATE` on session row → check idempotency record → load active participants, history (partners/opponents/games/rests), ratings snapshot → call `match-generator` with seed (server-generated unless supplied) → insert Round, Matches, Assignments with `generatorVersion`, `settings`, `seed` → store idempotency response → commit.
 3. Unique `(sessionId, roundNumber)` is the last line of defense against duplicate rounds.
 
 ### 4.2 Swap
+
 `POST /rounds/:id/swaps { a: slotRef, b: slotRef, expectedRoundVersion }` → tx: lock round, verify both slots belong to round, verify involved matches are `SCHEDULED` → swap player IDs between two assignment rows → bump `round.version` → audit log. Optimistic concurrency via `round.version` returns `409 ROUND_CHANGED` so two admins can't clobber each other.
 
 ### 4.3 Result confirmation & Elo
+
 1. `POST /matches/:id/confirm { winnerTeam }` with Idempotency-Key.
 2. tx: acquire `pg_advisory_xact_lock(ELO_LOCK)` (serializes all rating writes — volume is tiny) → lock match row → if already confirmed with same winner, return existing (idempotent); with different winner → `409` (use "correct") → set official result → call ratings service:
    - If the match is the latest in canonical order (normal case), compute deltas from players' current ratings (equivalent to pre-round snapshot because a player appears at most once per round) and append rating transactions.
    - If it is out of order (an earlier round confirmed late) or a correction/cancellation of a confirmed match, run **deterministic replay** from the earliest affected position (see DATABASE.md §5).
 3. Partial unique index on active `(matchId, playerId)` rating transactions prevents duplicates.
 4. "Confirm all" runs the same logic for every match in the round inside one transaction (all-or-nothing).
-5. Winner *selection* before Confirm is client-side state only; nothing is persisted until Confirm (ADR-014).
+5. Winner _selection_ before Confirm is client-side state only; nothing is persisted until Confirm (ADR-014).
 
 ### 4.4 AYO import
+
 `ImportProvider` interface:
 
 ```ts
@@ -158,13 +162,13 @@ interface ImportProvider {
 
 ## 8. Testing strategy
 
-| Layer | Tool | Focus |
-|---|---|---|
-| elo-engine, match-generator | Vitest | Formula, invariants, determinism, fairness simulations, replay equivalence |
-| api services | Vitest + real Postgres (Docker) | Transactions, idempotency, concurrency (parallel confirm), authz |
-| api routes | Vitest + `fastify.inject` | Validation, error mapping, role checks |
-| web | Vitest (+ Testing Library) for logic-heavy components | Swap selection state, winner selection |
-| E2E | Playwright (mobile viewport) | Golden path and swap/confirm flows |
+| Layer                       | Tool                                                  | Focus                                                                      |
+| --------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------- |
+| elo-engine, match-generator | Vitest                                                | Formula, invariants, determinism, fairness simulations, replay equivalence |
+| api services                | Vitest + real Postgres (Docker)                       | Transactions, idempotency, concurrency (parallel confirm), authz           |
+| api routes                  | Vitest + `fastify.inject`                             | Validation, error mapping, role checks                                     |
+| web                         | Vitest (+ Testing Library) for logic-heavy components | Swap selection state, winner selection                                     |
+| E2E                         | Playwright (mobile viewport)                          | Golden path and swap/confirm flows                                         |
 
 Tooling: Node 22 LTS, pnpm (workspace), Turborepo pipelines `lint`, `typecheck`, `test`, `build`. ESLint flat config + Prettier.
 
