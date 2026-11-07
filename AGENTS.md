@@ -28,6 +28,7 @@ docs/                  PRD, ARCHITECTURE, DATABASE, ROADMAP, DECISIONS
 - **Auth**: only admins log in (email + argon2id, DB-session httpOnly cookie). Players have no accounts in MVP; everyone else is a read-only Guest. Every mutating endpoint requires an admin (ADR-005).
 - **Results**: admin-entered only — tap winning team → Confirm; round "Confirm all" is atomic. No player/unauthenticated submissions in MVP (ADR-014).
 - **Elo**: individual, lifetime; start 1000, K=32; team rating = average of 2; Expected(A)=1/(1+10^((RB−RA)/400)); Delta=32×(Result−Expected); teammates get the same delta; no decay; ranked after 10 completed matches. Pre-round snapshot for parallel matches. Canonical order = session start → round → court (ADR-015). Append-only ledger; corrections/late confirms trigger deterministic replay forward (ADR-006). Decimal(10,4) storage, integer display (ADR-010). Idempotent confirmation + advisory lock.
+- **Database**: Prisma 7 + `@prisma/adapter-pg`, UUIDv7 ids, `timestamptz`; deferrable `UNIQUE(roundId, playerId)` + partial uniques/CHECKs in raw SQL (ADR-023).
 - **Generator**: Random, Balanced Elo, Mexicano, Americano, Fixed Partner; seeded and reproducible; settings + seed + version stored per round (ADR-017).
 - **Swaps**: tap-tap swap of any two slots in a round before matches start; no regeneration (ADR-013).
 - **AYO import**: parse share link locally (event ID, referral code); participants via **manual paste** with preview + player matching; one session per AYO event; behind an `ImportProvider` interface (ADR-009).
@@ -51,7 +52,11 @@ pnpm install                      # Node 22, pnpm 12 (see packageManager)
 pnpm lint && pnpm typecheck && pnpm test   # quality gates (Turborepo)
 pnpm format:check                 # Prettier
 pnpm db:up / pnpm db:down         # dev Postgres 16 on 127.0.0.1:5433 (docker-compose.dev.yml)
+pnpm db:migrate / pnpm db:seed    # prisma migrate dev / deterministic dev seed (wipes dev data)
+pnpm db:generate                  # Prisma client (Turborepo runs it before lint/typecheck/test)
 ```
+
+`pnpm test` needs Postgres running (`pnpm db:up`): `@pbl/database` integration tests recreate `<db>_test` each run. Raw-SQL constraints live in the init migration (docs/DATABASE.md §4, ADR-023); keep `prisma migrate diff` empty.
 
 ## Docs
 

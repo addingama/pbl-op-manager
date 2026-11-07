@@ -4,3 +4,5 @@ dist
 .next
 .turbo
 coverage
+packages/database/src/generated
+packages/database/prisma/migrations

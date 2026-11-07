@@ -1,0 +1,405 @@
+// Source of truth for the data model: docs/DATABASE.md.
+// Constraints Prisma cannot express live in hand-edited SQL in prisma/migrations
+// (see "Raw SQL" at the end of the init migration) and must not be re-declared here.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OpenPlayStatus {
+  DRAFT
+  OPEN
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum GeneratorMode {
+  RANDOM
+  BALANCED_ELO
+  MEXICANO
+  AMERICANO
+  FIXED_PARTNER
+  MANUAL
+}
+
+enum ParticipantStatus {
+  REGISTERED
+  WAITLISTED
+  ACTIVE
+  UNAVAILABLE
+  LEFT
+  REMOVED
+}
+
+enum RegistrationSource {
+  ADMIN
+  IMPORT
+}
+
+enum AssignmentStatus {
+  PLAYING
+  RESTING
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum RatingRunKind {
+  INCREMENTAL
+  REPLAY
+}
+
+enum ImportProviderId {
+  AYO_LINK
+  MANUAL_PASTE
+  SCREENSHOT
+}
+
+enum ExternalProvider {
+  AYO
+}
+
+enum ImportStatus {
+  PREVIEWED
+  COMMITTED
+  DISCARDED
+}
+
+/// Admin accounts only in MVP (ADR-005).
+model User {
+  id           String        @id @default(uuid(7))
+  /// Stored lowercase.
+  email        String        @unique
+  displayName  String
+  /// argon2id (ADR-005).
+  passwordHash String
+  active       Boolean       @default(true)
+  lastLoginAt  DateTime?     @db.Timestamptz(3)
+  sessions     AuthSession[]
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+}
+
+model AuthSession {
+  id        String   @id @default(uuid(7))
+  /// sha256 of the opaque cookie token.
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+}
+
+/// No contact details or other PII (ADR-019).
+model Player {
+  id             String                @id @default(uuid(7))
+  displayName    String
+  /// Lowercase, trimmed, diacritics/emoji stripped.
+  normalizedName String
+  active         Boolean               @default(true)
+  /// Projection of the active rating ledger (rebuildable). Decimal(10,4) per ADR-010.
+  rating         Decimal               @default(1000) @db.Decimal(10, 4)
+  peakRating     Decimal               @default(1000) @db.Decimal(10, 4)
+  matchesPlayed  Int                   @default(0)
+  wins           Int                   @default(0)
+  losses         Int                   @default(0)
+  createdAt      DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime              @updatedAt @db.Timestamptz(3)
+  participations OpenPlayParticipant[]
+  assignments    RoundAssignment[]
+  ratingTxns     RatingTransaction[]
+  aliases        PlayerAlias[]
+  fixedTeamsAsA  FixedTeam[]           @relation("FixedTeamPlayerA")
+  fixedTeamsAsB  FixedTeam[]           @relation("FixedTeamPlayerB")
+
+  @@index([normalizedName])
+  @@index([rating])
+}
+
+model OpenPlay {
+  id               String                @id @default(uuid(7))
+  title            String
+  startsAt         DateTime              @db.Timestamptz(3)
+  venue            String?
+  /// CHECK (courtCount >= 1)
+  courtCount       Int
+  /// CHECK (capacity IS NULL OR capacity >= 1)
+  capacity         Int?
+  visibility       Visibility            @default(PUBLIC)
+  status           OpenPlayStatus        @default(DRAFT)
+  defaultMode      GeneratorMode         @default(BALANCED_ELO)
+  defaultSettings  Json                  @default("{}")
+  externalProvider ExternalProvider?
+  externalEventId  String?
+  externalUrl      String?
+  /// AYO referral code, informational.
+  externalRefCode  String?
+  createdById      String
+  /// Optimistic concurrency.
+  version          Int                   @default(0)
+  createdAt        DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime              @updatedAt @db.Timestamptz(3)
+  participants     OpenPlayParticipant[]
+  rounds           Round[]
+  imports          ImportBatch[]
+  fixedTeams       FixedTeam[]
+
+  /// One session per external event (ADR-009).
+  @@unique([externalProvider, externalEventId])
+  @@index([startsAt])
+}
+
+model OpenPlayParticipant {
+  id          String             @id @default(uuid(7))
+  openPlayId  String
+  playerId    String
+  status      ParticipantStatus
+  source      RegistrationSource
+  waitlistPos Int?
+  joinedAt    DateTime           @default(now()) @db.Timestamptz(3)
+  leftAt      DateTime?          @db.Timestamptz(3)
+  openPlay    OpenPlay           @relation(fields: [openPlayId], references: [id], onDelete: Cascade)
+  player      Player             @relation(fields: [playerId], references: [id])
+
+  /// Prevents duplicate registration, including repeated imports.
+  @@unique([openPlayId, playerId])
+  @@index([openPlayId, status])
+}
+
+/// FIXED_PARTNER sessions. CHECK (playerAId <> playerBId)
+model FixedTeam {
+  id         String   @id @default(uuid(7))
+  openPlayId String
+  playerAId  String
+  playerBId  String
+  openPlay   OpenPlay @relation(fields: [openPlayId], references: [id], onDelete: Cascade)
+  playerA    Player   @relation("FixedTeamPlayerA", fields: [playerAId], references: [id])
+  playerB    Player   @relation("FixedTeamPlayerB", fields: [playerBId], references: [id])
+
+  @@unique([openPlayId, playerAId])
+  @@unique([openPlayId, playerBId])
+}
+
+/// CHECK (number >= 1)
+model Round {
+  id               String            @id @default(uuid(7))
+  openPlayId       String
+  number           Int
+  mode             GeneratorMode
+  /// Full effective generator settings.
+  settings         Json
+  /// Null for MANUAL.
+  seed             String?
+  /// e.g. "match-generator@1.0.0".
+  generatorVersion String?
+  /// { playerId: rating } used by the generator (informational).
+  ratingSnapshot   Json
+  /// Bumped on every swap (ADR-013).
+  version          Int               @default(0)
+  createdById      String
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  openPlay         OpenPlay          @relation(fields: [openPlayId], references: [id], onDelete: Cascade)
+  matches          Match[]
+  assignments      RoundAssignment[]
+
+  @@unique([openPlayId, number])
+}
+
+/// CHECK (courtNumber >= 1), CHECK (winnerTeam IS NULL OR winnerTeam IN (1, 2))
+model Match {
+  id            String              @id @default(uuid(7))
+  roundId       String
+  courtNumber   Int
+  status        MatchStatus         @default(SCHEDULED)
+  /// 1 | 2, official (admin-confirmed) only.
+  winnerTeam    Int?
+  /// Admin userId.
+  confirmedById String?
+  confirmedAt   DateTime?           @db.Timestamptz(3)
+  startedAt     DateTime?           @db.Timestamptz(3)
+  cancelledAt   DateTime?           @db.Timestamptz(3)
+  cancelReason  String?
+  /// Canonical Elo order key (ADR-015): "<startsAt ISO>|<openPlayId>|<round 5d>|<court 2d>".
+  orderKey      String
+  version       Int                 @default(0)
+  round         Round               @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  assignments   RoundAssignment[]
+  ratingTxns    RatingTransaction[]
+
+  @@unique([roundId, courtNumber])
+  @@index([orderKey])
+}
+
+/// One row per active participant per round.
+/// Raw SQL: the (roundId, playerId) unique is created as a DEFERRABLE INITIALLY DEFERRED constraint
+/// (in-transaction swaps, ADR-013) instead of the plain index Prisma would emit;
+/// partial UNIQUE (matchId, team, position) WHERE matchId IS NOT NULL;
+/// CHECK PLAYING <=> matchId/team/position all set; team, position IN (1, 2).
+model RoundAssignment {
+  id       String           @id @default(uuid(7))
+  roundId  String
+  playerId String
+  status   AssignmentStatus
+  /// Null when RESTING.
+  matchId  String?
+  team     Int?
+  position Int?
+  round    Round            @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  player   Player           @relation(fields: [playerId], references: [id])
+  match    Match?           @relation(fields: [matchId], references: [id])
+
+  @@unique([roundId, playerId])
+  @@index([roundId])
+  @@index([playerId])
+}
+
+model RatingRun {
+  id            String              @id @default(uuid(7))
+  kind          RatingRunKind
+  /// "confirm", "late-confirm", "correction", "cancel-confirmed", "rebuild", "seed".
+  reason        String
+  triggerMatch  String?
+  /// Replay start position.
+  fromOrderKey  String?
+  /// e.g. "elo-engine@1.0.0".
+  engineVersion String
+  createdById   String
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+  transactions  RatingTransaction[] @relation("RunCreated")
+  superseded    RatingTransaction[] @relation("RunSuperseded")
+}
+
+/// Append-only (ADR-006). Raw SQL: partial UNIQUE (matchId, playerId) WHERE supersededByRunId IS NULL;
+/// CHECK team IN (1, 2), result IN (0, 1).
+model RatingTransaction {
+  id                String     @id @default(uuid(7))
+  playerId          String
+  matchId           String
+  /// Copy of Match.orderKey for ordered scans.
+  orderKey          String
+  team              Int
+  /// 1 win, 0 loss.
+  result            Int
+  ratingBefore      Decimal    @db.Decimal(10, 4)
+  teamRating        Decimal    @db.Decimal(10, 4)
+  opponentRating    Decimal    @db.Decimal(10, 4)
+  expected          Decimal    @db.Decimal(10, 6)
+  delta             Decimal    @db.Decimal(10, 4)
+  ratingAfter       Decimal    @db.Decimal(10, 4)
+  runId             String
+  supersededByRunId String?
+  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
+  player            Player     @relation(fields: [playerId], references: [id])
+  match             Match      @relation(fields: [matchId], references: [id])
+  run               RatingRun  @relation("RunCreated", fields: [runId], references: [id])
+  supersededByRun   RatingRun? @relation("RunSuperseded", fields: [supersededByRunId], references: [id])
+
+  @@index([playerId, orderKey])
+  @@index([orderKey])
+}
+
+/// Import matching memory.
+model PlayerAlias {
+  id        String            @id @default(uuid(7))
+  /// Null = generic paste alias.
+  provider  ExternalProvider?
+  /// Normalized name or external user id.
+  aliasKey  String
+  playerId  String
+  player    Player            @relation(fields: [playerId], references: [id])
+  createdAt DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@unique([provider, aliasKey])
+}
+
+model ImportBatch {
+  id              String           @id @default(uuid(7))
+  openPlayId      String
+  provider        ImportProviderId
+  externalEventId String?
+  /// sha256 of the normalized participant list.
+  contentHash     String
+  /// Pasted text only; never credentials.
+  rawInput        String
+  status          ImportStatus     @default(PREVIEWED)
+  createdById     String
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  committedAt     DateTime?        @db.Timestamptz(3)
+  openPlay        OpenPlay         @relation(fields: [openPlayId], references: [id], onDelete: Cascade)
+  rows            ImportRow[]
+
+  /// Repeated identical import => same batch.
+  @@unique([openPlayId, provider, contentHash])
+}
+
+model ImportRow {
+  id             String      @id @default(uuid(7))
+  batchId        String
+  rawName        String
+  normalizedName String
+  /// EXACT | ALIAS | FUZZY | NEW | SKIPPED
+  matchType      String
+  /// Resolved player after review.
+  playerId       String?
+  batch          ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, normalizedName])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid(7))
+  actorUserId String?
+  /// e.g. "round.generate", "round.swap", "match.confirm", "match.correct".
+  action      String
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  reason      String?
+  requestId   String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model IdempotencyRecord {
+  id             String   @id @default(uuid(7))
+  /// e.g. "POST /sessions/:id/rounds" + actor id.
+  scope          String
+  /// Client Idempotency-Key header.
+  key            String
+  /// sha256 of the canonical body.
+  requestHash    String
+  responseStatus Int?
+  responseBody   Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt      DateTime @db.Timestamptz(3)
+
+  @@unique([scope, key])
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}

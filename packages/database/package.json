@@ -7,8 +7,24 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset --force",
+    "db:seed": "prisma db seed",
     "lint": "eslint --max-warnings=0 .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1"
+  },
+  "devDependencies": {
+    "@pbl/elo-engine": "workspace:*",
+    "@pbl/match-generator": "workspace:*",
+    "argon2": "^0.45.2",
+    "prisma": "7.10.1",
+    "tsx": "^4.23.15"
   }
 }

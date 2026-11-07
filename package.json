@@ -15,7 +15,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:up": "docker compose -f docker-compose.dev.yml up -d --wait",
-    "db:down": "docker compose -f docker-compose.dev.yml down"
+    "db:down": "docker compose -f docker-compose.dev.yml down",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "pnpm --filter @pbl/database db:migrate",
+    "db:deploy": "pnpm --filter @pbl/database db:deploy",
+    "db:reset": "pnpm --filter @pbl/database db:reset",
+    "db:seed": "pnpm --filter @pbl/database db:seed"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

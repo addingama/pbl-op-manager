@@ -11,3 +11,6 @@ test-results/
 .env.*
 !.env.example
 .DS_Store
+
+# Prisma generated client (pnpm db:generate)
+packages/database/src/generated/
