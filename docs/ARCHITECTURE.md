@@ -22,7 +22,7 @@ Status: Draft for approval · Last updated: 2026-11-07
 
 ## 2. Repository layout
 
-Recommendation: the repository root (`pbl-op-manager/`) **is** the monorepo root that the brief calls `pbl-openplay/` (see DECISIONS ADR-002, pending confirmation).
+The repository root (`pbl-op-manager/`, remote `git@github.com:addingama/pbl-op-manager.git`) **is** the monorepo root that the brief calls `pbl-openplay/`; package scope `@pbl/*` (ADR-002, accepted).
 
 ```
 .
@@ -66,16 +66,17 @@ src/
     players/              routes.ts  service.ts  repo.ts
     sessions/             (open plays, participants, waiting list)
     rounds/               generate, manual build, swap
-    results/              submissions, confirm, cancel, correct
+    results/              select/confirm, confirm-all, cancel, correct
     ratings/              ledger writer, replay, leaderboard queries
     imports/              providers/ (ayo-link, manual-paste), preview, commit
     audit/                audit log writer
-    auth/                 login/logout/me
+    auth/                 admin login/logout/me, admin management
+  cli/                    create-admin bootstrap command
   lib/                    idempotency, transactions, locks, logger
 ```
 
 - **routes.ts**: HTTP only — parse with Zod schemas from `@pbl/shared`, call service, map result to response.
-- **service.ts**: application logic; orchestrates domain packages + repos inside transactions; enforces authorization via an explicit `Actor` argument (`{ userId, role, playerId? }`).
+- **service.ts**: application logic; orchestrates domain packages + repos inside transactions; enforces authorization via an explicit `Actor` argument (`{ kind: 'guest' } | { kind: 'admin', userId }`), shaped so a `player` actor can be added post-MVP without changing service signatures.
 - **repo.ts**: Prisma queries only.
 - Errors: domain/application errors are typed (`AppError { code, httpStatus, message, details }`), mapped centrally to JSON `{ error: { code, message, details } }`. Codes live in `@pbl/shared` so the UI can show precise messages (e.g. `MATCH_ALREADY_STARTED`, `RESULT_ALREADY_CONFIRMED`, `IDEMPOTENCY_CONFLICT`).
 - Logging: Fastify's built-in pino, JSON in prod, request-id correlation, no PII beyond IDs.
@@ -84,15 +85,16 @@ src/
 
 | Method | Path | Role |
 |---|---|---|
-| GET | /api/sessions, /api/sessions/:id | Guest |
+| POST | /api/auth/login, /api/auth/logout; GET /api/auth/me | Public / Admin |
+| GET | /api/sessions, /api/sessions/:id (public sessions only for guests) | Guest |
 | POST/PATCH | /api/sessions, /api/sessions/:id | Admin |
-| POST/DELETE | /api/sessions/:id/participants[/:playerId] | Player (self) / Admin |
+| POST/PATCH/DELETE | /api/sessions/:id/participants[/:playerId] | Admin |
 | POST | /api/sessions/:id/rounds (Idempotency-Key) | Admin |
 | POST | /api/rounds/:id/swaps | Admin |
-| POST | /api/matches/:id/start | Admin |
-| POST | /api/matches/:id/submissions | Player (participant) |
-| POST | /api/matches/:id/confirm (Idempotency-Key) | Admin |
-| POST | /api/matches/:id/cancel, /api/matches/:id/correct | Admin |
+| POST | /api/rounds/:id/start, /api/matches/:id/start | Admin |
+| POST | /api/matches/:id/confirm { winnerTeam } (Idempotency-Key) | Admin |
+| POST | /api/rounds/:id/confirm-all { results[] } (Idempotency-Key) | Admin |
+| POST | /api/matches/:id/cancel, /api/matches/:id/correct { winnerTeam, reason } | Admin |
 | GET | /api/leaderboard, /api/players/:id, /api/players/:id/rating-history | Guest |
 | POST | /api/imports/ayo/parse-link, /api/imports/preview, /api/imports/commit | Admin |
 
@@ -111,7 +113,9 @@ src/
 2. tx: acquire `pg_advisory_xact_lock(ELO_LOCK)` (serializes all rating writes — volume is tiny) → lock match row → if already confirmed with same winner, return existing (idempotent); with different winner → `409` (use "correct") → set official result → call ratings service:
    - If the match is the latest in canonical order (normal case), compute deltas from players' current ratings (equivalent to pre-round snapshot because a player appears at most once per round) and append rating transactions.
    - If it is out of order (an earlier round confirmed late) or a correction/cancellation of a confirmed match, run **deterministic replay** from the earliest affected position (see DATABASE.md §5).
-3. Unique constraint `(matchId, playerId, ledgerVersion)` prevents duplicate transactions.
+3. Partial unique index on active `(matchId, playerId)` rating transactions prevents duplicates.
+4. "Confirm all" runs the same logic for every match in the round inside one transaction (all-or-nothing).
+5. Winner *selection* before Confirm is client-side state only; nothing is persisted until Confirm (ADR-014).
 
 ### 4.4 AYO import
 `ImportProvider` interface:
@@ -135,18 +139,22 @@ interface ImportProvider {
 - UI: Tailwind + shadcn/ui primitives in `packages/ui`.
 - PWA: `app/manifest.ts`, hand-written service worker (app-shell + static asset caching, network-first for API GETs, no offline writes in MVP). Avoid heavy PWA plugins unless they prove necessary.
 
-## 6. Auth (proposed — pending Addin's decision, ADR-005)
+## 6. Auth (ADR-005, accepted)
 
-- API-owned sessions: `Session` table, opaque random token in httpOnly, Secure, SameSite=Lax cookie; CSRF protection via SameSite + custom header requirement on mutations.
-- Login options under consideration: (a) email + password (argon2), (b) email magic link, (c) admin-issued invite links / PINs. Guests need no account.
-- A `User` may be linked to one `Player`. Admin creates players who may never have accounts.
+- **Only admins log in.** Players have no accounts in MVP; everyone else is a Guest.
+- Admin login: email + password, hashed with argon2id; login rate-limited per IP and per email.
+- API-owned DB sessions: `AuthSession` table, opaque random token (sha256-hashed at rest) in an httpOnly, Secure, SameSite=Lax cookie; 30-day sliding expiry; logout deletes the row.
+- CSRF: SameSite=Lax plus a required custom header (`X-Requested-With: pbl`) on mutations; same-origin only.
+- First admin is created on the VPS with `pnpm --filter @pbl/api create-admin` (or `docker compose run api create-admin`); further admins are managed in Admin Settings.
+- `Player` has no link to `User` in MVP; profile claiming is a post-MVP migration.
 
-## 7. Deployment
+## 7. Deployment (ADR-016, accepted)
 
-- Docker Compose services: `nginx`, `web`, `api`, `postgres` (volume), optional `migrate` one-shot (`prisma migrate deploy`).
-- Multi-stage Dockerfiles using `turbo prune` for minimal images.
-- Backups: nightly `pg_dump` to host volume/off-site (scope in final milestone).
-- Environment via `.env` (not committed); `.env.example` documented.
+- Target: Addin's self-hosted VPS, everything in Docker Compose.
+- Services: `nginx` (ports 80/443, TLS), `web` (Next.js standalone), `api` (Fastify), `postgres` (16, named volume, **no published port**), `migrate` one-shot (`prisma migrate deploy`) run before `api` starts, `certbot` (Let's Encrypt, webroot renewal), `backup` (nightly `pg_dump -Fc`, 14-day local retention).
+- Postgres stays containerized: low volume, single host, no strong reason for managed DB. Backups should also be copied off the VPS (rsync/rclone target chosen by Addin at deploy time).
+- Multi-stage Dockerfiles using `turbo prune` for minimal images; images built on the VPS (or pushed to GHCR later).
+- Environment via `.env` on the VPS (not committed); `.env.example` documented. Runbook in `docs/DEPLOYMENT.md` (written in M15).
 
 ## 8. Testing strategy
 
@@ -159,3 +167,7 @@ interface ImportProvider {
 | E2E | Playwright (mobile viewport) | Golden path and swap/confirm flows |
 
 Tooling: Node 22 LTS, pnpm (workspace), Turborepo pipelines `lint`, `typecheck`, `test`, `build`. ESLint flat config + Prettier.
+
+## 9. Internationalization (ADR-020)
+
+English-only UI in MVP. User-facing strings live in one `messages.ts` per app (web) and error messages map from error codes in `@pbl/shared`, so Bahasa Indonesia can be added later without touching components. No i18n library in MVP.

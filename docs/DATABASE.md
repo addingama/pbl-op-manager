@@ -14,13 +14,15 @@ Status: Draft for approval · Last updated: 2026-11-07
 ## 2. Entity overview
 
 ```
-User 1─0..1 Player ─< OpenPlayParticipant >─ OpenPlay ─< Round ─< Match ─< MatchSlot(4)
-                                                       └< RoundAssignment (one per active participant: PLAYING or RESTING)
-Match ─< ResultSubmission          Match ─< RatingTransaction >─ RatingRun
-Player ─< RatingTransaction        Player ─< PlayerAlias
+Player ─< OpenPlayParticipant >─ OpenPlay ─< Round ─< Match
+                                             Round ─< RoundAssignment (one per active participant: PLAYING or RESTING) >─ Player
+Match ─< RatingTransaction >─ RatingRun     Player ─< RatingTransaction     Player ─< PlayerAlias
 OpenPlay ─< ImportBatch ─< ImportRow
-AuditLog, IdempotencyRecord, AuthSession, AppSetting (standalone)
+User (admins only) ─< AuthSession
+AuditLog, IdempotencyRecord, AppSetting (standalone)
 ```
+
+MVP scope notes (ADR-005, ADR-014, ADR-018): `User` rows are admins only; `Player` has no account link; there is no `ResultSubmission` table. Post-MVP player accounts add `Player.userId` and a `ResultSubmission` table via new migrations.
 
 `RoundAssignment` is the single source of truth for who plays where in a round; `Match` holds match-level state. (A separate `MatchSlot` table is **not** needed — slot = assignment with `matchId, team, position`.)
 
@@ -30,12 +32,11 @@ AuditLog, IdempotencyRecord, AuthSession, AppSetting (standalone)
 generator client { provider = "prisma-client-js" }
 datasource db   { provider = "postgresql"; url = env("DATABASE_URL") }
 
-enum Role               { PLAYER ADMIN }
 enum OpenPlayStatus     { DRAFT OPEN LIVE COMPLETED CANCELLED }
 enum Visibility         { PUBLIC PRIVATE }
 enum GeneratorMode      { RANDOM BALANCED_ELO MEXICANO AMERICANO FIXED_PARTNER MANUAL }
 enum ParticipantStatus  { REGISTERED WAITLISTED ACTIVE UNAVAILABLE LEFT REMOVED }
-enum RegistrationSource { SELF ADMIN IMPORT }
+enum RegistrationSource { ADMIN IMPORT }
 enum AssignmentStatus   { PLAYING RESTING }
 enum MatchStatus        { SCHEDULED IN_PROGRESS COMPLETED CANCELLED }
 enum RatingRunKind      { INCREMENTAL REPLAY }
@@ -43,12 +44,13 @@ enum ImportProviderId   { AYO_LINK MANUAL_PASTE SCREENSHOT }
 enum ExternalProvider   { AYO }
 enum ImportStatus       { PREVIEWED COMMITTED DISCARDED }
 
-model User {
+model User {                         // admin accounts only in MVP
   id           String   @id @default(uuid())
-  email        String?  @unique
-  passwordHash String?              // only if password auth is chosen (ADR-005)
-  role         Role     @default(PLAYER)
-  player       Player?
+  email        String   @unique       // stored lowercase
+  displayName  String
+  passwordHash String                 // argon2id (ADR-005)
+  active       Boolean  @default(true)
+  lastLoginAt  DateTime?
   sessions     AuthSession[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -68,9 +70,7 @@ model Player {
   id             String   @id @default(uuid())
   displayName    String
   normalizedName String                // lowercase, trimmed, diacritics/emoji stripped
-  userId         String?  @unique
-  user           User?    @relation(fields: [userId], references: [id])
-  active         Boolean  @default(true)
+  active         Boolean  @default(true)   // no contact details / PII stored (ADR-019)
   // Projection of the active rating ledger (rebuildable)
   rating         Decimal  @default(1000) @db.Decimal(10, 4)   // ADR-010: full precision, display rounded
   peakRating     Decimal  @default(1000) @db.Decimal(10, 4)
@@ -162,8 +162,8 @@ model Match {
   roundId        String
   courtNumber    Int
   status         MatchStatus @default(SCHEDULED)
-  winnerTeam     Int?                         // 1 | 2, official only; CHECK in (1,2)
-  confirmedById  String?
+  winnerTeam     Int?                         // 1 | 2, official (admin-confirmed) only; CHECK in (1,2)
+  confirmedById  String?                      // admin userId
   confirmedAt    DateTime?
   startedAt      DateTime?
   cancelledAt    DateTime?
@@ -173,7 +173,6 @@ model Match {
   version        Int         @default(0)
   round          Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
   assignments    RoundAssignment[]
-  submissions    ResultSubmission[]
   ratingTxns     RatingTransaction[]
   @@unique([roundId, courtNumber])
   @@index([orderKey])
@@ -195,17 +194,6 @@ model RoundAssignment {
   // CHECK ((status='PLAYING') = (match_id IS NOT NULL AND team IS NOT NULL AND position IS NOT NULL))
   @@index([roundId])
   @@index([playerId])
-}
-
-model ResultSubmission {
-  id          String   @id @default(uuid())
-  matchId     String
-  submittedBy String                          // userId
-  playerId    String                          // submitter's player (must be in match)
-  winnerTeam  Int
-  createdAt   DateTime @default(now())
-  match       Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  @@unique([matchId, playerId])               // one live submission per participant (upsert to change)
 }
 
 model RatingRun {
@@ -346,7 +334,9 @@ Swap = update `playerId` of two assignment rows in one transaction (the deferrab
 
 Determinism guarantee: replay output depends only on (initial ratings, ordered confirmed results, engine version). A test asserts `replay(all) == incremental history`.
 
-**Precision**: store full-precision decimals in the ledger and projections; display rounded integers (ADR-010, pending confirmation).
+**Corrections** always replay forward from the corrected match (ADR-006, accepted); there are no compensating adjustments.
+
+**Precision**: ledger and projections store `Decimal(10,4)`; the engine rounds each delta to 4 dp so replays are bit-identical; UI displays rounded integers (ADR-010, accepted).
 
 **Peak Elo**: max `ratingAfter` over active ledger (and 1000). **Ranked**: `matchesPlayed ≥ 10`.
 
@@ -354,22 +344,22 @@ Determinism guarantee: replay output depends only on (initial ratings, ordered c
 
 ## 6. Idempotency
 
-- Required header `Idempotency-Key` on: round generation, match confirmation, match correction, import commit.
+- Required header `Idempotency-Key` on: round generation, match confirmation, round confirm-all, match correction, import commit.
 - Flow: insert `IdempotencyRecord(scope,key,requestHash)` in the same tx as the operation; on unique violation → if `requestHash` matches and response stored, replay stored response; if hash differs → `422 IDEMPOTENCY_KEY_REUSED`; if in-flight → `409`.
 - Natural-key backstops: `Round(openPlayId, number)`, rating partial unique, `Match.status` state machine (confirm only from `SCHEDULED|IN_PROGRESS`, or same-winner no-op on `COMPLETED`).
 - Expiry: 24 h, cleaned by a periodic job (or on startup) — low volume.
 
 ## 7. Audit log
 
-Written in the same transaction as the change for: player create/edit/merge, participant add/remove/leave/waitlist promote, round generate/manual edit/delete, swap, match start/cancel, submission, confirm, correct, rating replay, import commit, settings change, role change.
+Written in the same transaction as the change for: player create/edit/merge, participant add/remove/leave/waitlist promote, round generate/manual edit/delete, swap, round/match start, match cancel, confirm, confirm-all, correct, rating replay, import commit, settings change, admin create/deactivate, admin login (success/failure).
 
 ## 8. AYO references
 
 - `OpenPlay.externalProvider = AYO`, `externalEventId = "293332"`, `externalUrl` = original share link, `externalRefCode = "ADDQEO"`.
-- Unique `(externalProvider, externalEventId)` prevents two sessions for the same AYO event (admin can override by clearing the ref — pending decision).
+- Unique `(externalProvider, externalEventId)` enforces one session per AYO event (ADR-009, accepted); to reuse an event ID the admin must first clear the reference on the old session (audit-logged).
 - `PlayerAlias(provider=AYO, aliasKey=normalized AYO display name)` remembers admin-confirmed mappings for future imports.
 - No AYO credentials or tokens are ever stored; `rawInput` holds only pasted text.
 
 ## 9. Seed data
 
-Dev seed: 1 admin, 20 players with varied ratings, 1 draft and 1 completed session with confirmed matches (ledger generated via the engine, not hand-written).
+Dev seed: 1 admin (dev-only credentials from `.env`), 20 players with varied ratings, 1 draft and 1 completed session with confirmed matches (ledger generated via the engine, not hand-written).
