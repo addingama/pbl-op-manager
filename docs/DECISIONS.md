@@ -117,14 +117,19 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
 
 - **Status**: Accepted
 - **Decision**: Common first step for all modes: choose who plays by fewest games played this session, then longest rest, then seeded random; the rest sit out.
-  - **Random**: random teams/matches among those selected.
+  - **Random**: random teams/matches among those selected. Repeat partners/opponents are still avoided when history exists (PRD FR-G4 applies to every mode); Elo is ignored.
   - **Balanced Elo**: minimize the sum of team-average Elo differences, with penalties for repeat partners and opponents.
   - **Mexicano**: round 1 = Balanced Elo. Later rounds rank by session wins → session win rate → current Elo → seeded tiebreak; group consecutive 4s; within a group, 1st+4th vs 2nd+3rd.
   - **Americano**: per-round rotation (no precomputed schedule, so late joins and early leaves work); minimize repeat partners first, then repeat opponents, then Elo difference.
   - **Fixed Partner**: teams fixed per session; teams with the fewest games and longest rest play; opponents minimize repeats, then team-Elo difference; with an odd number of teams, resting teams rotate; unpaired players are not scheduled until the admin pairs them.
 - **Consequences**: Deterministic, testable rules; weights live in round `settings` and are stored per round.
-
-## ADR-018 — Players are admin-created; no profile claiming in MVP
+- **Implementation (M2, `@pbl/match-generator` `GENERATOR_VERSION` 1.0.0)**:
+  - **Input**: active participants (id, rating), courts, mode, seed, optional settings, fixed teams, and this session's previous rounds with results. The generator derives games, wins, last round played, and partner/opponent counts itself, so callers cannot pass inconsistent stats. Unconfirmed results count as played but not as wins; cancelled matches are omitted by the caller.
+  - **Determinism**: participants and teams are put in canonical (id) order before any randomness, so input order never matters. Randomness comes from a seeded mulberry32 PRNG over a hash of the seed string.
+  - **Pairing**: per-mode weighted cost (`repeatPartnerWeight`, `repeatOpponentWeight`, `ratingDiffWeight`) minimized by seeded local search with `restarts`. Mexicano rounds after results use the deterministic ranking instead. Mexicano round 1 is identical to Balanced Elo.
+  - **Fixed Partner**: a team's games are the max of its two players, and its last round is the more recent of the two. A team with an absent member does not play, and its present member rests.
+  - **Output**: courts 1..n, a resting list sorted by id, effective settings, and diagnostics (team-Elo difference, repeat partners and opponents). `validateRound` checks the hard constraints and can be reused for manual rounds and swaps.
+    — Players are admin-created; no profile claiming in MVP
 
 - **Status**: Accepted
 - **Decision**: Admins create all players (manually or via import). `Player` has no `userId` in MVP; claiming/linking accounts is a post-MVP migration.
