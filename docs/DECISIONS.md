@@ -113,3 +113,9 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
 ## ADR-020 — UI language
 - **Status**: Accepted
 - **Decision**: English UI in MVP. All user-facing strings live in one `messages.ts` module per app, and error messages are keyed by `@pbl/shared` error codes, so Bahasa Indonesia can be added later without an i18n library now.
+
+## ADR-021 — Shared agent context lives in-repo (AGENTS.md)
+- **Status**: Accepted (Addin, 2026-11-07)
+- **Context**: Addin works with both Cursor and Codex; both must share the same project context and rules.
+- **Decision**: Root `AGENTS.md` is the single source of truth for agent context (purpose, stack, layout, key ADRs, process rules, doc pointers). Cursor and Codex both load it natively. `CLAUDE.md` is a thin pointer to `AGENTS.md` for Claude Code. No `.cursor/rules/` or other tool-specific copies unless Cursor-only enforcement is needed, and even then they should point to AGENTS.md rather than repeat it.
+- **Consequences**: One file to maintain. When an ADR changes the summary, update AGENTS.md in the same commit.
