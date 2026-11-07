@@ -11,7 +11,7 @@
     "lint": "turbo run lint //#lint:root",
     "lint:root": "eslint --max-warnings=0 \"*.js\"",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
+    "test": "turbo run test --concurrency=1",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:up": "docker compose -f docker-compose.dev.yml up -d --wait",
@@ -20,7 +20,8 @@
     "db:migrate": "pnpm --filter @pbl/database db:migrate",
     "db:deploy": "pnpm --filter @pbl/database db:deploy",
     "db:reset": "pnpm --filter @pbl/database db:reset",
-    "db:seed": "pnpm --filter @pbl/database db:seed"
+    "db:seed": "pnpm --filter @pbl/database db:seed",
+    "create-admin": "pnpm --filter @pbl/api create-admin"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

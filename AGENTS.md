@@ -54,9 +54,11 @@ pnpm format:check                 # Prettier
 pnpm db:up / pnpm db:down         # dev Postgres 16 on 127.0.0.1:5433 (docker-compose.dev.yml)
 pnpm db:migrate / pnpm db:seed    # prisma migrate dev / deterministic dev seed (wipes dev data)
 pnpm db:generate                  # Prisma client (Turborepo runs it before lint/typecheck/test)
+pnpm create-admin                 # bootstrap first admin (CREATE_ADMIN_* or --email/--password)
+pnpm --filter @pbl/api start      # Fastify API on PORT (default 3001)
 ```
 
-`pnpm test` needs Postgres running (`pnpm db:up`): `@pbl/database` integration tests recreate `<db>_test` each run. Raw-SQL constraints live in the init migration (docs/DATABASE.md §4, ADR-023); keep `prisma migrate diff` empty.
+`pnpm test` needs Postgres running (`pnpm db:up`): `@pbl/database` and `@pbl/api` integration tests recreate `<db>_test` each run (Turborepo runs package tests with `--concurrency=1` to avoid parallel DB resets). Raw-SQL constraints live in the init migration (docs/DATABASE.md §4, ADR-023); keep `prisma migrate diff` empty.
 
 ## Docs
 

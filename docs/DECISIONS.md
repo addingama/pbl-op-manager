@@ -86,6 +86,8 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
 
 - **Status**: Accepted
 - **Decision**: Prefer platform/in-house for small utilities (seeded PRNG, fuzzy matching via simple Levenshtein, SVG chart). Allowed core deps: next, react, tailwindcss, shadcn/ui (radix), fastify (+ @fastify/cookie, @fastify/rate-limit), zod, prisma, vitest, playwright, argon2. Each additional dependency gets a line here.
+  - `zod` (M4, `@pbl/shared`): API request/response contracts and `parseBody` validation helpers.
+  - `fastify`, `@fastify/cookie`, `@fastify/rate-limit` (M4, `@pbl/api`): HTTP server, session cookies, login rate limiting.
   - `@prisma/client` + `@prisma/adapter-pg` (M3): Prisma 7 needs the client package and a driver adapter (it has no built-in engine connection); `pg` comes with the adapter.
   - `tsx` (M3, dev only): runs the TypeScript seed script (`prisma db seed`). Node's built-in type stripping can't resolve the `.js` → `.ts` import specifiers used across the workspace.
 
@@ -176,3 +178,14 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Integration tests run against `<DATABASE_URL db>_test` on the dev Postgres (or `TEST_DATABASE_URL`). Vitest global setup drops, recreates, and migrates it once per run (`prisma migrate deploy`), refusing any name not ending in `_test`. Each suite truncates the tables, and files run serially. `pnpm test` therefore needs `pnpm db:up`.
   - The dev seed wipes and reloads deterministic data (matches from `@pbl/match-generator`, ledger from `@pbl/elo-engine`) and refuses to run with `NODE_ENV=production`.
 - **Consequences**: Future migrations must keep the raw-SQL objects (`prisma migrate diff` must stay empty — a test asserts it). Prisma blocks `migrate reset` when run by an AI agent without explicit user consent; agents should use a scratch database instead.
+
+## ADR-024 — API foundation (M4)
+
+- **Status**: Accepted (M4, 2026-11-08)
+- **Decision**:
+  - `buildServer()` in `apps/api` registers Fastify with pino logging, request-id (`X-Request-Id`), central `AppError` → JSON mapping, CSRF header (`X-Requested-With: pbl`) on all mutations except `POST /api/auth/login`, and DB-backed admin sessions (opaque cookie `pbl_session`, sha256 hash at rest, 30-day sliding expiry).
+  - `@pbl/shared` owns error codes, Zod auth/health schemas, `parseBody`, and HTTP constants. `@pbl/api` owns `runIdempotent`, `writeAudit`, and `requireAdmin`.
+  - Login is rate-limited (5/min per IP+email). `pnpm create-admin` bootstraps the first admin; further admins are post-MVP Admin Settings.
+  - Non-production-only `POST /api/dev/mutate-check` proves admin+CSRF guards in tests; production has no dev routes.
+  - Integration tests use `fastify.inject` against `<db>_test`; root `pnpm test` runs Turborepo with `--concurrency=1` so `@pbl/database` and `@pbl/api` do not race on DB recreation.
+- **Consequences**: M5+ modules mount under `/api` with `requireAdmin` + CSRF on mutations; business routes use `runIdempotent` where ADR-008 requires keys.
