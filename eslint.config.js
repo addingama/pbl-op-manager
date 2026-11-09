@@ -12,6 +12,8 @@ export default tseslint.config(
       '**/.turbo/**',
       '**/coverage/**',
       '**/src/generated/**',
+      '**/postcss.config.mjs',
+      '**/next-env.d.ts',
     ],
   },
   js.configs.recommended,
@@ -32,6 +34,12 @@ export default tseslint.config(
     files: ['**/*.js'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['**/next.config.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
   },
   prettier,
 );

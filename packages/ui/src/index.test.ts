@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { PACKAGE_NAME } from './index.js';
+import { cn } from './index';
 
-describe('@pbl/ui', () => {
-  it('is wired into the workspace', () => {
-    expect(PACKAGE_NAME).toBe('@pbl/ui');
+describe('@pbl/ui cn', () => {
+  it('merges tailwind classes', () => {
+    expect(cn('px-2', 'px-4')).toBe('px-4');
   });
 });

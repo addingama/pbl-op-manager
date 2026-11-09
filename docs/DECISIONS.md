@@ -230,3 +230,14 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Reads use `Player` projections plus active `RatingTransaction` rows; monthly buckets use `Asia/Jakarta` (ADR timezone decision).
   - Leaderboard-specific routes register before `/players/:id` so nested paths resolve.
 - **Consequences**: M9 web can bind leaderboard/profile UI to shared Zod contracts; no new tables.
+
+## ADR-029 — Web foundation (M9)
+
+- **Status**: Accepted (M9, 2026-11-09)
+- **Decision**:
+  - `apps/web` is Next.js 15 App Router with Tailwind v4; shadcn-style primitives live in `@pbl/ui` (Button, Input, Card, `cn`).
+  - Browser calls same-origin `/api/*` via Next rewrites to Fastify; server components use `API_URL` with forwarded cookies.
+  - English copy in `apps/web/messages.ts`; errors map from `@pbl/shared` codes.
+  - Mobile-first layout with bottom-style nav; guest vs admin affordances (sign-in link vs sign-out).
+  - MVP pages: Home, Open Play list, admin Login; Vitest for copy/format helpers; Playwright smoke `home → list` via `pnpm --filter @pbl/web test:e2e` (optional `SKIP_E2E=1`).
+- **Consequences**: M10+ screens extend routes and client islands without TanStack Query (ADR-007).

@@ -1,0 +1,47 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@pbl/ui';
+import { getAdminSession } from '@/lib/auth';
+import { formatSessionWhen, listSessions } from '@/lib/sessions';
+import { messages } from '@/messages';
+
+export default async function SessionsPage() {
+  const [sessions, admin] = await Promise.all([listSessions(), getAdminSession()]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-semibold tracking-tight">{messages.sessions.title}</h1>
+      {admin !== null ? (
+        <p className="text-sm text-slate-600" data-testid="admin-banner">
+          {messages.nav.adminSignedIn}: {admin.displayName}
+        </p>
+      ) : null}
+      {sessions.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-slate-600">
+            {messages.sessions.empty}
+          </CardContent>
+        </Card>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {sessions.map((session) => (
+            <li key={session.id}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">{session.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1 text-sm text-slate-700">
+                  <p>{formatSessionWhen(session.startsAt)}</p>
+                  {session.venue !== null ? <p>{session.venue}</p> : null}
+                  <p>
+                    {messages.status[session.status]} · {session.participantCount}{' '}
+                    {messages.sessions.participants} · {session.courtCount}{' '}
+                    {messages.sessions.courts}
+                  </p>
+                </CardContent>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
