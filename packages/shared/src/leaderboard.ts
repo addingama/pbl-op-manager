@@ -87,7 +87,9 @@ export const monthlyActivityResponseSchema = z.object({
   months: z.array(monthlyActivityRowSchema),
 });
 
+export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 export type LeaderboardQuery = z.infer<typeof leaderboardQuerySchema>;
+export type MonthlyActivityRow = z.infer<typeof monthlyActivityRowSchema>;
 export type RatingHistoryQuery = z.infer<typeof ratingHistoryQuerySchema>;
 export type RecentMatchesQuery = z.infer<typeof recentMatchesQuerySchema>;
 export type MonthlyActivityQuery = z.infer<typeof monthlyActivityQuerySchema>;

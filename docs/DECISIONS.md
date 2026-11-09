@@ -259,3 +259,13 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Client polls `GET /api/sessions/:id/rounds` every 5s; admin mutations use existing API (generate, swap, start, confirm, confirm-all, cancel, correct) with `Idempotency-Key` on confirm paths.
   - Tap-tap swap and two-tap winner (team → confirm sheet) with pure state helpers in Vitest; Playwright `e2e/live-flow.spec.ts`.
 - **Consequences**: M12 leaderboard UI remains separate; no new API beyond M6–M7 endpoints.
+
+## ADR-032 — Leaderboard, profile & admin settings UI (M12)
+
+- **Status**: Accepted (M12, 2026-11-09)
+- **Decision**:
+  - Routes `/leaderboard`, `/players/[id]`, `/admin/settings` (admin-only).
+  - Reuse M8 read APIs for leaderboard/profile; new settings module: `GET/PATCH /api/settings`, `GET/POST/PATCH /api/admins`, `POST /api/auth/change-password` backed by `AppSetting` and `User`.
+  - Rating history chart is inline SVG via `sparklinePoints` (no chart library).
+  - Playwright `e2e/leaderboard.spec.ts` (confirm → leaderboard/profile).
+- **Consequences**: M13 import unaffected; session create may later read stored defaults.

@@ -13,6 +13,7 @@ import { registerSessionRoutes } from './modules/sessions/routes.js';
 import { registerRoundRoutes } from './modules/rounds/routes.js';
 import { registerResultRoutes } from './modules/results/routes.js';
 import { registerLeaderboardRoutes } from './modules/leaderboard/routes.js';
+import { registerSettingsRoutes } from './modules/settings/routes.js';
 import './lib/request.js';
 
 export interface BuildServerOptions {
@@ -42,6 +43,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
       registerSessionRoutes(api, prisma);
       registerRoundRoutes(api, prisma);
       registerResultRoutes(api, prisma);
+      registerSettingsRoutes(api, prisma);
       registerDevRoutes(api);
     },
     { prefix: '/api' },

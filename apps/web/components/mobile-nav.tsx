@@ -7,9 +7,10 @@ import { cn } from '@pbl/ui';
 import { messages } from '@/messages';
 import { LogoutButton } from './logout-button';
 
-const links = [
+const publicLinks = [
   { href: '/', label: messages.nav.home },
   { href: '/sessions', label: messages.nav.sessions },
+  { href: '/leaderboard', label: messages.nav.leaderboard },
 ] as const;
 
 export function MobileNav({ admin }: { admin: AdminMe | null }) {
@@ -36,8 +37,8 @@ export function MobileNav({ admin }: { admin: AdminMe | null }) {
             </div>
           )}
         </div>
-        <nav aria-label="Main" className="flex gap-2">
-          {links.map((link) => {
+        <nav aria-label="Main" className="flex flex-wrap gap-2">
+          {publicLinks.map((link) => {
             const active = pathname === link.href;
             return (
               <Link
@@ -55,6 +56,20 @@ export function MobileNav({ admin }: { admin: AdminMe | null }) {
               </Link>
             );
           })}
+          {admin !== null ? (
+            <Link
+              href="/admin/settings"
+              aria-current={pathname === '/admin/settings' ? 'page' : undefined}
+              className={cn(
+                'min-h-11 flex-1 rounded-lg px-3 py-2 text-center text-sm font-medium',
+                pathname === '/admin/settings'
+                  ? 'bg-emerald-700 text-white'
+                  : 'bg-slate-100 text-slate-800 hover:bg-slate-200',
+              )}
+            >
+              {messages.nav.settings}
+            </Link>
+          ) : null}
         </nav>
       </div>
     </header>
