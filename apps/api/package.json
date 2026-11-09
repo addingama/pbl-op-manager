@@ -7,6 +7,7 @@
     "lint": "eslint --max-warnings=0 .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
     "create-admin": "tsx src/cli/create-admin.ts"
   },

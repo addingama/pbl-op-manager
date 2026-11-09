@@ -9,6 +9,11 @@
       "dependsOn": ["^build", "db:generate", "^db:generate"],
       "outputs": ["dist/**"]
     },
+    "dev": {
+      "dependsOn": ["db:generate", "^db:generate"],
+      "cache": false,
+      "persistent": true
+    },
     "lint": {
       "dependsOn": ["db:generate", "^db:generate"]
     },
