@@ -249,4 +249,13 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Guest-readable aggregates: `GET /api/sessions/:id/rounds`, `GET /api/sessions/:id/standings` (completed matches only; same visibility rules as session detail).
   - Web route `/sessions/[id]` shows standings, rounds/matches, participant lists; admin-only client island `ParticipantManager` (search, multi-add, remove, promote, unavailable, left) with optimistic updates and API error codes via `messages.ts`.
   - Vitest for picker/partition helpers; Playwright `e2e/participants.spec.ts` (admin add flow; skippable with `SKIP_E2E=1`).
-- **Consequences**: M11 live manager reuses session detail data loading; no TanStack Query (ADR-007).
+- **Consequences**: M11+ live routes build on session read APIs; no TanStack Query (ADR-007).
+
+## ADR-031 — Live manager & generator UI (M11)
+
+- **Status**: Accepted (M11, 2026-11-09)
+- **Decision**:
+  - Routes `/sessions/[id]/generator` (admin) and `/sessions/[id]/live` (guest read + admin controls).
+  - Client polls `GET /api/sessions/:id/rounds` every 5s; admin mutations use existing API (generate, swap, start, confirm, confirm-all, cancel, correct) with `Idempotency-Key` on confirm paths.
+  - Tap-tap swap and two-tap winner (team → confirm sheet) with pure state helpers in Vitest; Playwright `e2e/live-flow.spec.ts`.
+- **Consequences**: M12 leaderboard UI remains separate; no new API beyond M6–M7 endpoints.

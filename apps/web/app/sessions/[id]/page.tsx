@@ -40,6 +40,22 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
         <p className="text-sm text-slate-600">
           {messages.status[session.status]} · {session.courtCount} {messages.sessions.courts}
         </p>
+        <div className="flex flex-wrap gap-3 pt-2 text-sm font-medium">
+          <Link
+            href={`/sessions/${id}/live`}
+            className="text-emerald-800 underline-offset-2 hover:underline"
+          >
+            {messages.live.title}
+          </Link>
+          {admin !== null ? (
+            <Link
+              href={`/sessions/${id}/generator`}
+              className="text-emerald-800 underline-offset-2 hover:underline"
+            >
+              {messages.live.generateTitle}
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <section className="space-y-2" aria-labelledby="standings-heading">
