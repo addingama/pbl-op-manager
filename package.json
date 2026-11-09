@@ -21,7 +21,8 @@
     "db:deploy": "pnpm --filter @pbl/database db:deploy",
     "db:reset": "pnpm --filter @pbl/database db:reset",
     "db:seed": "pnpm --filter @pbl/database db:seed",
-    "create-admin": "pnpm --filter @pbl/api create-admin"
+    "create-admin": "pnpm --filter @pbl/api create-admin",
+    "compose:config": "docker compose -f docker-compose.yml config"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

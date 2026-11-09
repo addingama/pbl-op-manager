@@ -25,6 +25,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   const prisma = options.prisma ?? createPrismaClient();
   const app = Fastify({
     logger: options.logger ?? process.env['NODE_ENV'] !== 'test',
+    trustProxy: process.env['NODE_ENV'] === 'production',
   });
 
   await app.register(cookie, { hook: 'onRequest' });

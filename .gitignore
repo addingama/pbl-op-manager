@@ -10,6 +10,8 @@ test-results/
 .env
 .env.*
 !.env.example
+!.env.production.example
+docker/nginx/conf.d/https.conf
 .DS_Store
 
 # Prisma generated client (pnpm db:generate)

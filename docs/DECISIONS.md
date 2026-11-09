@@ -279,3 +279,14 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Global a11y: skip link, `:focus-visible`, `prefers-reduced-motion` overrides.
   - Playwright: `@axe-core/playwright` on home/sessions/leaderboard/login; `e2e/pwa.spec.ts` for manifest/SW/offline banner.
 - **Consequences**: API routes are not cached; full offline writes remain post-MVP.
+
+## ADR-034 — VPS Docker Compose deployment (M15)
+
+- **Status**: Accepted (M15, 2026-11-09)
+- **Decision**:
+  - Production images: `docker/Dockerfile.api` and `docker/Dockerfile.web` via `turbo prune`; Next `output: 'standalone'`.
+  - `docker-compose.yml`: internal Postgres, one-shot `migrate`, `api`, `web`, `nginx`, `certbot` renew loop, `backup` sidecar (cron + 14-day retention).
+  - Nginx: gzip, `/api` → api, `/` → web, static cache headers; HTTP bootstrap then optional `https.conf` from example after Certbot.
+  - API `trustProxy: true` in production for Nginx `X-Forwarded-*`.
+  - Runbook: `docs/DEPLOYMENT.md`; contract tests in `apps/api/src/deploy/`.
+- **Consequences**: Image builds are heavy; CI may validate compose file without building images.
