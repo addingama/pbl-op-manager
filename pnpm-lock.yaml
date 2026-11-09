@@ -208,6 +208,9 @@ importers:
       '@pbl/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@pbl/elo-engine':
+        specifier: workspace:*
+        version: link:../../packages/elo-engine
       '@pbl/shared':
         specifier: workspace:*
         version: link:../../packages/shared

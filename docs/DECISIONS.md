@@ -189,3 +189,14 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Non-production-only `POST /api/dev/mutate-check` proves admin+CSRF guards in tests; production has no dev routes.
   - Integration tests use `fastify.inject` against `<db>_test`; root `pnpm test` runs Turborepo with `--concurrency=1` so `@pbl/database` and `@pbl/api` do not race on DB recreation.
 - **Consequences**: M5+ modules mount under `/api` with `requireAdmin` + CSRF on mutations; business routes use `runIdempotent` where ADR-008 requires keys.
+
+## ADR-025 — Players and sessions API (M5)
+
+- **Status**: Accepted (M5, 2026-11-09)
+- **Decision**:
+  - REST under `/api/players` and `/api/sessions` using Zod contracts in `@pbl/shared`. Guest GETs for public data; every mutation requires admin session + CSRF (M4).
+  - Player create rejects exact `normalizedName` duplicates (`409 PLAYER_DUPLICATE`); similar active names (Levenshtein ≤ 2) return `warnings` on success (FR-P3).
+  - Guests see only `PUBLIC` sessions; private sessions return 404 to guests. Admins see all sessions.
+  - Session lifecycle: `DRAFT→OPEN→LIVE→COMPLETED|CANCELLED` with explicit allowed transitions; invalid transitions return `409 INVALID_STATUS_TRANSITION`.
+  - Participants: admin `POST …/participants` (multi `playerIds`), capacity overflow → `WAITLISTED` with FIFO `waitlistPos`, `POST …/promote` for waitlist, `PATCH` for `UNAVAILABLE`/`LEFT`, `DELETE` → `REMOVED`. Late join during `LIVE` assigns `ACTIVE`.
+- **Consequences**: M6 round generation reads participant statuses (`ACTIVE`/`UNAVAILABLE`/…); rating history chart endpoints remain a later milestone.

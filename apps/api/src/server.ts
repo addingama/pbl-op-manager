@@ -8,6 +8,8 @@ import { registerRequestContext } from './plugins/request-context.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
 import { registerDevRoutes } from './modules/dev/routes.js';
 import { registerHealthRoutes } from './modules/health/routes.js';
+import { registerPlayerRoutes } from './modules/players/routes.js';
+import { registerSessionRoutes } from './modules/sessions/routes.js';
 import './lib/request.js';
 
 export interface BuildServerOptions {
@@ -32,6 +34,8 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     async (api) => {
       registerHealthRoutes(api, prisma);
       await registerAuthRoutes(api, prisma);
+      registerPlayerRoutes(api, prisma);
+      registerSessionRoutes(api, prisma);
       registerDevRoutes(api);
     },
     { prefix: '/api' },

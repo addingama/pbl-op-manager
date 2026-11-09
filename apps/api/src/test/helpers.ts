@@ -33,6 +33,25 @@ export async function testApp(prisma: PrismaClient): Promise<FastifyInstance> {
 
 export const csrfHeaders = { [CSRF_HEADER]: CSRF_HEADER_VALUE } as const;
 
+export async function loginAsAdmin(
+  app: FastifyInstance,
+  prisma: PrismaClient,
+  creds?: { email?: string; password?: string },
+): Promise<{ cookie: string; userId: string; email: string; password: string }> {
+  const admin = await createTestAdmin(prisma, creds);
+  const login = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: { email: admin.email, password: admin.password },
+  });
+  return {
+    cookie: sessionCookie(login.headers['set-cookie']),
+    userId: admin.userId,
+    email: admin.email,
+    password: admin.password,
+  };
+}
+
 export function sessionCookie(setCookie: string | string[] | undefined): string {
   const line = Array.isArray(setCookie) ? setCookie[0] : setCookie;
   if (line === undefined) throw new Error('no Set-Cookie header');
