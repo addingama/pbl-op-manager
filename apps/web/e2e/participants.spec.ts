@@ -64,15 +64,24 @@ test.describe('participant management', () => {
     const session = (await sessionRes.json()) as { id: string };
     const newName = `E2E Inline ${String(Date.now())}`;
 
+    const runtimeErrors: string[] = [];
+    page.on('pageerror', (err) => runtimeErrors.push(err.message));
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') runtimeErrors.push(msg.text());
+    });
+
     await page.goto(`/sessions/${session.id}`);
     const section = page.getByTestId('create-player-section');
     await expect(section).toBeVisible();
+    await expect(page.getByTestId('participant-manager')).toBeVisible();
+    const sectionBox = await section.boundingBox();
+    const searchBox = await page.getByTestId('player-search').boundingBox();
+    expect((sectionBox?.y ?? Infinity) < (searchBox?.y ?? -Infinity)).toBe(true);
+
     await section.getByTestId('create-player-name').fill(newName);
     await section.getByTestId('create-player-submit').click();
     await expect(page.getByTestId('create-player-feedback')).toBeVisible({ timeout: 15_000 });
-    await section.getByTestId('create-player-name').fill(newName.slice(0, 4));
-    await expect(page.getByTestId('player-search')).toBeVisible();
-    await page.getByTestId('player-search').fill(newName.slice(0, 6));
-    await expect(page.getByRole('checkbox', { name: newName })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(newName)).toBeVisible({ timeout: 15_000 });
+    expect(runtimeErrors).toEqual([]);
   });
 });

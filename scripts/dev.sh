@@ -19,5 +19,8 @@ pnpm db:deploy
 echo "Ensuring dev admin exists…"
 pnpm --filter @pbl/api ensure-dev-admin
 
+echo "Clearing stale Next.js cache (avoids webpack 'reading call' errors after next build / start)…"
+rm -rf apps/web/.next
+
 echo "Starting API (3001) and web (3000)…"
 exec pnpm exec turbo run dev --filter=@pbl/api --filter=@pbl/web --parallel
