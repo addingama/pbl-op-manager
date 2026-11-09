@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@pbl/database';
 import { AppError, ErrorCode } from '@pbl/shared';
 import { createHash } from 'node:crypto';
+import type { TransactionClient } from './transaction-client.js';
 
 const IN_FLIGHT_MS = 60_000;
 const DEFAULT_TTL_HOURS = 24;
@@ -15,17 +16,12 @@ export interface IdempotentResult<T> {
   readonly replayed: boolean;
 }
 
-type Tx = Omit<
-  PrismaClient,
-  '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends' | '$use'
->;
-
 export interface RunIdempotentOptions<T> {
   readonly prisma: PrismaClient;
   readonly scope: string;
   readonly key: string;
   readonly requestHash: string;
-  readonly run: (tx: Tx) => Promise<T>;
+  readonly run: (tx: TransactionClient) => Promise<T>;
   readonly toStored: (value: T) => {
     readonly status: number;
     readonly body: Prisma.InputJsonValue;

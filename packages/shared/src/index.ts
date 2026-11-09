@@ -28,6 +28,15 @@ export {
   type UpdatePlayerBody,
 } from './players.js';
 export {
+  generateRoundBodySchema,
+  manualRoundBodySchema,
+  roundDetailSchema,
+  swapSlotsBodySchema,
+  type GenerateRoundBody,
+  type ManualRoundBody,
+  type SwapSlotsBody,
+} from './rounds.js';
+export {
   addParticipantsBodySchema,
   createSessionBodySchema,
   patchParticipantBodySchema,

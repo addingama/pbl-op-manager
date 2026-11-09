@@ -200,3 +200,13 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Session lifecycle: `DRAFT→OPEN→LIVE→COMPLETED|CANCELLED` with explicit allowed transitions; invalid transitions return `409 INVALID_STATUS_TRANSITION`.
   - Participants: admin `POST …/participants` (multi `playerIds`), capacity overflow → `WAITLISTED` with FIFO `waitlistPos`, `POST …/promote` for waitlist, `PATCH` for `UNAVAILABLE`/`LEFT`, `DELETE` → `REMOVED`. Late join during `LIVE` assigns `ACTIVE`.
 - **Consequences**: M6 round generation reads participant statuses (`ACTIVE`/`UNAVAILABLE`/…); rating history chart endpoints remain a later milestone.
+
+## ADR-026 — Rounds API: generation, manual build, swaps (M6)
+
+- **Status**: Accepted (M6, 2026-11-09)
+- **Decision**:
+  - `POST /api/sessions/:id/rounds` is idempotent (`Idempotency-Key`, body hash, `runIdempotent`); persists mode, settings JSON, seed, `generatorVersion` (`match-generator@…`), and per-round rating snapshot; locks `OpenPlay` row (`SELECT … FOR UPDATE`) while numbering rounds.
+  - Eligible schedulable participants: `REGISTERED` and `ACTIVE` only. Generation allowed when session is `OPEN` or `LIVE`; `MANUAL` uses dedicated create/edit routes.
+  - Swaps use optimistic concurrency on `round.version` (`409 ROUND_CHANGED`); blocked when any involved match is not `SCHEDULED` (`409 MATCH_ALREADY_STARTED`). Player swaps update two `RoundAssignment.playerId` values in one transaction (deferrable unique on `(roundId, playerId)` from M3).
+  - Manual rounds: create, replace assignments while all matches are `SCHEDULED`, delete last round if unstarted.
+- **Consequences**: M7+ can build UI on stable round DTOs; match/round start marks matches `IN_PROGRESS` without scoring (M8+).

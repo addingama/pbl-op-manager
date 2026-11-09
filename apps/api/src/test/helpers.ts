@@ -3,6 +3,7 @@ import type { PrismaClient } from '@pbl/database';
 import { hash } from 'argon2';
 import type { FastifyInstance } from 'fastify';
 import { SESSION_COOKIE_NAME, CSRF_HEADER, CSRF_HEADER_VALUE } from '@pbl/shared';
+import { hashSessionToken, newSessionToken, sessionExpiresAt } from '../lib/session.js';
 import { buildServer } from '../server.js';
 
 export function testPrisma(): PrismaClient {
@@ -32,6 +33,23 @@ export async function testApp(prisma: PrismaClient): Promise<FastifyInstance> {
 }
 
 export const csrfHeaders = { [CSRF_HEADER]: CSRF_HEADER_VALUE } as const;
+
+/** Admin cookie without hitting the login rate limiter (used by API integration tests). */
+export async function adminSessionCookie(
+  prisma: PrismaClient,
+  creds?: { email?: string; password?: string },
+): Promise<{ cookie: string; userId: string }> {
+  const admin = await createTestAdmin(prisma, creds);
+  const token = newSessionToken();
+  await prisma.authSession.create({
+    data: {
+      userId: admin.userId,
+      tokenHash: hashSessionToken(token),
+      expiresAt: sessionExpiresAt(),
+    },
+  });
+  return { cookie: `${SESSION_COOKIE_NAME}=${token}`, userId: admin.userId };
+}
 
 export async function loginAsAdmin(
   app: FastifyInstance,

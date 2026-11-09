@@ -211,6 +211,9 @@ importers:
       '@pbl/elo-engine':
         specifier: workspace:*
         version: link:../../packages/elo-engine
+      '@pbl/match-generator':
+        specifier: workspace:*
+        version: link:../../packages/match-generator
       '@pbl/shared':
         specifier: workspace:*
         version: link:../../packages/shared

@@ -10,6 +10,7 @@ import { registerDevRoutes } from './modules/dev/routes.js';
 import { registerHealthRoutes } from './modules/health/routes.js';
 import { registerPlayerRoutes } from './modules/players/routes.js';
 import { registerSessionRoutes } from './modules/sessions/routes.js';
+import { registerRoundRoutes } from './modules/rounds/routes.js';
 import './lib/request.js';
 
 export interface BuildServerOptions {
@@ -36,6 +37,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
       await registerAuthRoutes(api, prisma);
       registerPlayerRoutes(api, prisma);
       registerSessionRoutes(api, prisma);
+      registerRoundRoutes(api, prisma);
       registerDevRoutes(api);
     },
     { prefix: '/api' },
