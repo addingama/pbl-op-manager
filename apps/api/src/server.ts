@@ -11,6 +11,7 @@ import { registerHealthRoutes } from './modules/health/routes.js';
 import { registerPlayerRoutes } from './modules/players/routes.js';
 import { registerSessionRoutes } from './modules/sessions/routes.js';
 import { registerRoundRoutes } from './modules/rounds/routes.js';
+import { registerResultRoutes } from './modules/results/routes.js';
 import './lib/request.js';
 
 export interface BuildServerOptions {
@@ -38,6 +39,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
       registerPlayerRoutes(api, prisma);
       registerSessionRoutes(api, prisma);
       registerRoundRoutes(api, prisma);
+      registerResultRoutes(api, prisma);
       registerDevRoutes(api);
     },
     { prefix: '/api' },

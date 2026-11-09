@@ -14,6 +14,8 @@ export function toRoundDetail(round: {
     id: string;
     courtNumber: number;
     status: string;
+    winnerTeam: number | null;
+    confirmedAt: Date | null;
     assignments: { team: number | null; position: number | null; playerId: string }[];
   }[];
   assignments: { playerId: string; status: string }[];
@@ -33,6 +35,8 @@ export function toRoundDetail(round: {
       status: m.status,
       team1,
       team2,
+      winnerTeam: m.winnerTeam === 1 || m.winnerTeam === 2 ? m.winnerTeam : null,
+      confirmedAt: m.confirmedAt?.toISOString() ?? null,
     };
   });
   const resting = round.assignments

@@ -28,6 +28,17 @@ export {
   type UpdatePlayerBody,
 } from './players.js';
 export {
+  cancelMatchBodySchema,
+  confirmAllBodySchema,
+  confirmMatchBodySchema,
+  correctMatchBodySchema,
+  matchResultSchema,
+  type CancelMatchBody,
+  type ConfirmAllBody,
+  type ConfirmMatchBody,
+  type CorrectMatchBody,
+} from './results.js';
+export {
   generateRoundBodySchema,
   manualRoundBodySchema,
   roundDetailSchema,

@@ -210,3 +210,13 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Swaps use optimistic concurrency on `round.version` (`409 ROUND_CHANGED`); blocked when any involved match is not `SCHEDULED` (`409 MATCH_ALREADY_STARTED`). Player swaps update two `RoundAssignment.playerId` values in one transaction (deferrable unique on `(roundId, playerId)` from M3).
   - Manual rounds: create, replace assignments while all matches are `SCHEDULED`, delete last round if unstarted.
 - **Consequences**: M7+ can build UI on stable round DTOs; match/round start marks matches `IN_PROGRESS` without scoring (M8+).
+
+## ADR-027 — Results and Elo ledger API (M7)
+
+- **Status**: Accepted (M7, 2026-11-09)
+- **Decision**:
+  - Admin-only result entry: `POST /matches/:id/confirm` (idempotent), `POST /rounds/:id/confirm-all`, `POST /matches/:id/cancel`, `POST /matches/:id/correct` (idempotent, reason required).
+  - All rating writes run under `pg_advisory_xact_lock` (global Elo lock). Incremental path when the new match’s `orderKey` is after every player’s latest active ledger row; otherwise deterministic `REPLAY` from the earliest affected `orderKey` via `@pbl/elo-engine` `foldLedger`.
+  - Append-only `RatingTransaction` rows superseded on replay; `Player` projections rebuilt from active ledger.
+  - `assertLedgerMatchesFold` integration helper verifies fold ≡ projections after mutations.
+- **Consequences**: M8 leaderboard/history read APIs consume projections and ledger; no player submissions (ADR-014).

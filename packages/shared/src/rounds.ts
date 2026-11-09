@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { winnerTeamSchema } from './results.js';
 import { generatorModeSchema } from './sessions.js';
 
 const teamSchema = z.tuple([z.string().min(1), z.string().min(1)]);
@@ -32,6 +33,8 @@ export const roundMatchSchema = z.object({
   status: z.string(),
   team1: teamSchema,
   team2: teamSchema,
+  winnerTeam: winnerTeamSchema.nullable().optional(),
+  confirmedAt: z.string().nullable().optional(),
 });
 
 export const roundDetailSchema = z.object({
