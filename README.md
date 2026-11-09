@@ -11,8 +11,8 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm dev` (same as `pnpm start`) will create `.env` from `.env.example` if needed, start Postgres on `127.0.0.1:5433`, apply migrations, and run the API and web app. Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
+`pnpm dev` (same as `pnpm start`) will create `.env` from `.env.example` if needed, start Postgres on `127.0.0.1:5433`, apply migrations, **create the dev admin if missing** (`SEED_ADMIN_*`), and run the API and web app. Open [http://127.0.0.1:3000](http://127.0.0.1:3000). Sign in at `/login` with `admin@pbl.local` / `pbl-dev-admin` unless you changed `SEED_ADMIN_*` in `.env`.
 
-Dev seed admin (optional): `pnpm db:seed` after migrate — see `.env.example` for `SEED_ADMIN_*`.
+Full demo data (optional, wipes DB): `pnpm db:seed`.
 
 Production VPS: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Agent context: [AGENTS.md](AGENTS.md).
