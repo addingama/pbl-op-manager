@@ -7,3 +7,23 @@
 body {
   @apply min-h-dvh bg-slate-50 text-slate-900 antialiased;
 }
+
+.skip-link {
+  @apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:min-h-11 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-emerald-800 focus:shadow-md focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-600;
+}
+
+:focus-visible {
+  outline: 2px solid #047857;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

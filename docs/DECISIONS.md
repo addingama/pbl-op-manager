@@ -269,3 +269,13 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Rating history chart is inline SVG via `sparklinePoints` (no chart library).
   - Playwright `e2e/leaderboard.spec.ts` (confirm → leaderboard/profile).
 - **Consequences**: M13 import unaffected; session create may later read stored defaults.
+
+## ADR-033 — PWA shell & accessibility (M14)
+
+- **Status**: Accepted (M14, 2026-11-09)
+- **Decision**:
+  - `public/sw.js`: versioned shell cache for `/`, `/sessions`, `/leaderboard`; network-first navigations with offline fallback; static `/_next/static` and icons cache-on-miss.
+  - `PwaShell` client: register SW, offline banner, optional `beforeinstallprompt` install row; manifest icons (SVG 192/512).
+  - Global a11y: skip link, `:focus-visible`, `prefers-reduced-motion` overrides.
+  - Playwright: `@axe-core/playwright` on home/sessions/leaderboard/login; `e2e/pwa.spec.ts` for manifest/SW/offline banner.
+- **Consequences**: API routes are not cached; full offline writes remain post-MVP.

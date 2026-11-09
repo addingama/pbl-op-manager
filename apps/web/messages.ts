@@ -140,6 +140,13 @@ export const messages = {
     monthlyActivity: 'Monthly activity',
     noActivity: 'No activity in the last year.',
   },
+  pwa: {
+    skipToContent: 'Skip to main content',
+    offline: 'You are offline. Cached pages may still be available.',
+    installHint: 'Install this app on your home screen for quick access at the venue.',
+    install: 'Install',
+    dismiss: 'Not now',
+  },
   adminSettings: {
     title: 'Admin settings',
     loadFailed: 'Could not load settings.',

@@ -14,6 +14,7 @@ export default tseslint.config(
       '**/src/generated/**',
       '**/postcss.config.mjs',
       '**/next-env.d.ts',
+      '**/public/sw.js',
     ],
   },
   js.configs.recommended,
