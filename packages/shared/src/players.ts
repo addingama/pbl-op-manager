@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const ratingSchema = z.union([z.string(), z.number()]).transform(String);
+export const ratingSchema = z.union([z.string(), z.number()]).transform(String);
 
 export const createPlayerBodySchema = z.object({
   displayName: z.string().trim().min(1).max(120),
@@ -21,6 +21,8 @@ export const playerListItemSchema = z.object({
 });
 
 export const playerProfileSchema = playerListItemSchema.extend({
+  status: z.enum(['ranked', 'provisional']),
+  rank: z.number().int().positive().nullable(),
   peakRating: ratingSchema,
   wins: z.number().int().nonnegative(),
   losses: z.number().int().nonnegative(),

@@ -31,7 +31,12 @@ describe('players', () => {
     if (first === undefined) throw new Error('expected a player');
     const profile = await app.inject({ method: 'GET', url: `/api/players/${first.id}` });
     expect(profile.statusCode).toBe(200);
-    expect(profile.json()).toMatchObject({ displayName: 'Alice', winRate: null });
+    expect(profile.json()).toMatchObject({
+      displayName: 'Alice',
+      winRate: null,
+      status: 'provisional',
+      rank: null,
+    });
   });
 
   it('requires admin to create and rejects duplicates', async () => {

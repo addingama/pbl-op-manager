@@ -8,7 +8,9 @@ import {
   type CreatePlayerBody,
   type UpdatePlayerBody,
 } from '@pbl/shared';
+import { rankingStatus } from '@pbl/elo-engine';
 import { isRanked, ratingNumber } from '../../lib/ranked.js';
+import { rankForPlayer } from '../leaderboard/rank.js';
 import { writeAudit } from '../../lib/audit.js';
 import * as repo from './repo.js';
 
@@ -78,7 +80,12 @@ export async function getPlayerProfile(prisma: PrismaClient, id: string) {
   if (player === null || !player.active) {
     throw new AppError(ErrorCode.PLAYER_NOT_FOUND, 404, 'Player not found');
   }
-  return toPlayerProfile(player);
+  const rank = await rankForPlayer(prisma, player);
+  return {
+    ...toPlayerProfile(player),
+    status: rankingStatus(player.matchesPlayed),
+    rank,
+  };
 }
 
 export async function createPlayer(

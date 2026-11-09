@@ -220,3 +220,13 @@ Format: each ADR has Status (Proposed / Accepted / Superseded), Context, Decisio
   - Append-only `RatingTransaction` rows superseded on replay; `Player` projections rebuilt from active ledger.
   - `assertLedgerMatchesFold` integration helper verifies fold ≡ projections after mutations.
 - **Consequences**: M8 leaderboard/history read APIs consume projections and ledger; no player submissions (ADR-014).
+
+## ADR-028 — Leaderboard & profile read API (M8)
+
+- **Status**: Accepted (M8, 2026-11-09)
+- **Decision**:
+  - Guest GETs: `/api/leaderboard` (`tab=ranked|provisional`, pagination), extended `/api/players/:id` (rank + status), `/api/players/:id/rating-history`, `/recent-matches`, `/monthly-activity`.
+  - Ranked tab: active players with `matchesPlayed ≥ 10`, competition ranks by `rating` desc. Provisional tab: active players below threshold; `rank` null.
+  - Reads use `Player` projections plus active `RatingTransaction` rows; monthly buckets use `Asia/Jakarta` (ADR timezone decision).
+  - Leaderboard-specific routes register before `/players/:id` so nested paths resolve.
+- **Consequences**: M9 web can bind leaderboard/profile UI to shared Zod contracts; no new tables.

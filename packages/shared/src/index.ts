@@ -16,7 +16,22 @@ export {
   type ErrorDetails,
 } from './errors.js';
 export { CSRF_HEADER, CSRF_HEADER_VALUE, IDEMPOTENCY_HEADER, SESSION_COOKIE_NAME } from './http.js';
-export { parseBody } from './validation.js';
+export { parseBody, parseQuery } from './validation.js';
+export {
+  leaderboardEntrySchema,
+  leaderboardQuerySchema,
+  leaderboardResponseSchema,
+  monthlyActivityQuerySchema,
+  monthlyActivityResponseSchema,
+  ratingHistoryQuerySchema,
+  ratingHistoryResponseSchema,
+  recentMatchesQuerySchema,
+  recentMatchesResponseSchema,
+  type LeaderboardQuery,
+  type MonthlyActivityQuery,
+  type RatingHistoryQuery,
+  type RecentMatchesQuery,
+} from './leaderboard.js';
 export { levenshtein, normalizeDisplayName } from './normalize.js';
 export {
   createPlayerBodySchema,
