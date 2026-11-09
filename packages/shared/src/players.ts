@@ -41,3 +41,4 @@ export const createPlayerResponseSchema = z.object({
 
 export type CreatePlayerBody = z.infer<typeof createPlayerBodySchema>;
 export type UpdatePlayerBody = z.infer<typeof updatePlayerBodySchema>;
+export type PlayerListItem = z.infer<typeof playerListItemSchema>;

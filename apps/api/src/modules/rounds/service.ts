@@ -50,6 +50,30 @@ export async function getRound(prisma: PrismaClient, actor: Actor, roundId: stri
   return toRoundDetail(round);
 }
 
+async function requireSessionForGuest(
+  prisma: PrismaClient,
+  actor: Actor,
+  sessionId: string,
+): Promise<{ visibility: 'PUBLIC' | 'PRIVATE' }> {
+  const session = await prisma.openPlay.findUnique({
+    where: { id: sessionId },
+    select: { id: true, visibility: true },
+  });
+  if (session === null) {
+    throw new AppError(ErrorCode.SESSION_NOT_FOUND, 404, 'Session not found');
+  }
+  if (session.visibility === 'PRIVATE' && actor.kind !== 'admin') {
+    throw new AppError(ErrorCode.SESSION_NOT_FOUND, 404, 'Session not found');
+  }
+  return session;
+}
+
+export async function listSessionRounds(prisma: PrismaClient, actor: Actor, sessionId: string) {
+  await requireSessionForGuest(prisma, actor, sessionId);
+  const rounds = await repo.listRoundsForSession(prisma, sessionId);
+  return rounds.map((round) => toRoundDetail(round));
+}
+
 export async function generateSessionRound(
   prisma: PrismaClient,
   actor: Actor,

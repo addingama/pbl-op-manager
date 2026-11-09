@@ -74,6 +74,18 @@ export const sessionDetailSchema = sessionListItemSchema.extend({
   participants: z.array(participantSchema),
 });
 
+export const sessionStandingRowSchema = z.object({
+  playerId: z.string(),
+  displayName: z.string(),
+  wins: z.number().int().nonnegative(),
+  losses: z.number().int().nonnegative(),
+  gamesPlayed: z.number().int().nonnegative(),
+});
+
+export const sessionStandingsResponseSchema = z.object({
+  standings: z.array(sessionStandingRowSchema),
+});
+
 export type CreateSessionBody = z.infer<typeof createSessionBodySchema>;
 export type UpdateSessionBody = z.infer<typeof updateSessionBodySchema>;
 export type AddParticipantsBody = z.infer<typeof addParticipantsBodySchema>;

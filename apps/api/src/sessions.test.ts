@@ -196,3 +196,42 @@ describe('lifecycle and participant changes', () => {
     expect(unavailable.json()).toMatchObject({ participant: { status: 'UNAVAILABLE' } });
   });
 });
+
+describe('session read aggregates', () => {
+  it('exposes rounds and standings to guests on public sessions', async () => {
+    const { cookie } = await loginAsAdmin(app, prisma);
+    const session = await app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      headers: { cookie, ...csrfHeaders },
+      payload: {
+        title: 'Public read',
+        startsAt: '2026-12-01T12:00:00.000Z',
+        courtCount: 2,
+        visibility: 'PUBLIC',
+      },
+    });
+    const sessionId = parseId(session.json());
+
+    const guestRounds = await app.inject({
+      method: 'GET',
+      url: `/api/sessions/${sessionId}/rounds`,
+    });
+    expect(guestRounds.statusCode).toBe(200);
+    expect(guestRounds.json()).toEqual({ rounds: [] });
+
+    const guestStandings = await app.inject({
+      method: 'GET',
+      url: `/api/sessions/${sessionId}/standings`,
+    });
+    expect(guestStandings.statusCode).toBe(200);
+    expect(guestStandings.json()).toEqual({ standings: [] });
+
+    const guestPrivate = await app.inject({
+      method: 'GET',
+      url: `/api/sessions/${sessionId}/rounds`,
+      headers: { cookie },
+    });
+    expect(guestPrivate.statusCode).toBe(200);
+  });
+});

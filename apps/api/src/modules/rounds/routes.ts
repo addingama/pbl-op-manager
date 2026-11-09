@@ -7,6 +7,7 @@ import {
   manualRoundBodySchema,
   parseBody,
   roundDetailSchema,
+  sessionRoundsResponseSchema,
   swapSlotsBodySchema,
 } from '@pbl/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -23,6 +24,12 @@ function idempotencyKey(request: FastifyRequest): string {
 }
 
 export function registerRoundRoutes(app: FastifyInstance, prisma: PrismaClient): void {
+  app.get('/sessions/:sessionId/rounds', async (request) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const rounds = await service.listSessionRounds(prisma, request.actor, sessionId);
+    return sessionRoundsResponseSchema.parse({ rounds });
+  });
+
   app.get('/rounds/:roundId', async (request) => {
     const { roundId } = request.params as { roundId: string };
     const round = await service.getRound(prisma, request.actor, roundId);

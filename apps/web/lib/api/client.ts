@@ -1,4 +1,36 @@
-import { CSRF_HEADER, CSRF_HEADER_VALUE, type ApiErrorBody, type LoginBody } from '@pbl/shared';
+import {
+  CSRF_HEADER,
+  CSRF_HEADER_VALUE,
+  type ApiErrorBody,
+  type ErrorCode,
+  type LoginBody,
+} from '@pbl/shared';
+import { messageForErrorCode } from '@/messages';
+
+export function csrfMutationHeaders(): Record<string, string> {
+  return { [CSRF_HEADER]: CSRF_HEADER_VALUE };
+}
+
+export async function readApiError(res: Response): Promise<string> {
+  try {
+    const data = (await res.json()) as ApiErrorBody;
+    return messageForErrorCode(data.error.code);
+  } catch {
+    return messageForErrorCode('INTERNAL_ERROR' satisfies ErrorCode);
+  }
+}
+
+export async function clientJson(
+  path: string,
+  init: RequestInit,
+): Promise<{ ok: true; data: unknown } | { ok: false; message: string }> {
+  const res = await clientFetch(path, init);
+  if (res.ok) {
+    const data: unknown = await res.json();
+    return { ok: true, data };
+  }
+  return { ok: false, message: await readApiError(res) };
+}
 
 export async function clientFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);

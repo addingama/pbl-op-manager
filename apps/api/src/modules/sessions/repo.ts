@@ -8,6 +8,19 @@ export function listSessions(prisma: PrismaClient, where: Prisma.OpenPlayWhereIn
   });
 }
 
+export function findCompletedMatchesInSession(prisma: PrismaClient, openPlayId: string) {
+  return prisma.match.findMany({
+    where: {
+      round: { openPlayId },
+      status: 'COMPLETED',
+      winnerTeam: { not: null },
+    },
+    include: {
+      assignments: { where: { status: 'PLAYING' } },
+    },
+  });
+}
+
 export function findSession(prisma: PrismaClient, id: string) {
   return prisma.openPlay.findUnique({
     where: { id },

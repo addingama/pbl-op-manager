@@ -51,6 +51,10 @@ export const roundDetailSchema = z.object({
   resting: z.array(z.string()),
 });
 
+export const sessionRoundsResponseSchema = z.object({
+  rounds: z.array(roundDetailSchema),
+});
+
 export type GenerateRoundBody = z.infer<typeof generateRoundBodySchema>;
 export type ManualRoundBody = z.infer<typeof manualRoundBodySchema>;
 export type SwapSlotsBody = z.infer<typeof swapSlotsBodySchema>;

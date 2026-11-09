@@ -6,6 +6,7 @@ import {
   patchParticipantBodySchema,
   sessionDetailSchema,
   sessionListItemSchema,
+  sessionStandingsResponseSchema,
   updateSessionBodySchema,
 } from '@pbl/shared';
 import type { FastifyInstance } from 'fastify';
@@ -23,6 +24,12 @@ export function registerSessionRoutes(app: FastifyInstance, prisma: PrismaClient
     const { id } = request.params as { id: string };
     const session = await service.getSession(prisma, request.actor, id);
     return sessionDetailSchema.parse(session);
+  });
+
+  app.get('/sessions/:id/standings', async (request) => {
+    const { id } = request.params as { id: string };
+    const result = await service.getSessionStandings(prisma, request.actor, id);
+    return sessionStandingsResponseSchema.parse(result);
   });
 
   app.post('/sessions', async (request) => {

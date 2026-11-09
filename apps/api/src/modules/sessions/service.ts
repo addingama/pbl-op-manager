@@ -102,6 +102,52 @@ export async function getSession(prisma: PrismaClient, actor: Actor, id: string)
   return toSessionDetail(session);
 }
 
+export async function getSessionStandings(prisma: PrismaClient, actor: Actor, id: string) {
+  const session = await repo.findSession(prisma, id);
+  if (session === null || !guestCanView(session.visibility, actor)) {
+    throw new AppError(ErrorCode.SESSION_NOT_FOUND, 404, 'Session not found');
+  }
+  const nameById = new Map(
+    session.participants.map((p) => [p.playerId, p.player.displayName] as const),
+  );
+  const stats = new Map<string, { wins: number; losses: number; gamesPlayed: number }>();
+
+  function bump(playerId: string, won: boolean) {
+    const row = stats.get(playerId) ?? { wins: 0, losses: 0, gamesPlayed: 0 };
+    row.gamesPlayed += 1;
+    if (won) row.wins += 1;
+    else row.losses += 1;
+    stats.set(playerId, row);
+  }
+
+  const matches = await repo.findCompletedMatchesInSession(prisma, id);
+  for (const match of matches) {
+    const winnerTeam = match.winnerTeam;
+    if (winnerTeam !== 1 && winnerTeam !== 2) continue;
+    for (const a of match.assignments) {
+      if (a.team === null) continue;
+      const won = a.team === winnerTeam;
+      bump(a.playerId, won);
+      if (nameById.get(a.playerId) === undefined) {
+        const player = await playersRepo.findPlayer(prisma, a.playerId);
+        if (player !== null) nameById.set(a.playerId, player.displayName);
+      }
+    }
+  }
+
+  const standings = [...stats.entries()]
+    .map(([playerId, s]) => ({
+      playerId,
+      displayName: nameById.get(playerId) ?? playerId,
+      wins: s.wins,
+      losses: s.losses,
+      gamesPlayed: s.gamesPlayed,
+    }))
+    .sort((a, b) => b.wins - a.wins || a.displayName.localeCompare(b.displayName));
+
+  return { standings };
+}
+
 export async function createSession(
   prisma: PrismaClient,
   actor: Actor,

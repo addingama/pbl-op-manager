@@ -40,6 +40,7 @@ export {
   playerProfileSchema,
   updatePlayerBodySchema,
   type CreatePlayerBody,
+  type PlayerListItem,
   type UpdatePlayerBody,
 } from './players.js';
 export {
@@ -57,6 +58,7 @@ export {
   generateRoundBodySchema,
   manualRoundBodySchema,
   roundDetailSchema,
+  sessionRoundsResponseSchema,
   swapSlotsBodySchema,
   type GenerateRoundBody,
   type ManualRoundBody,
@@ -68,6 +70,8 @@ export {
   patchParticipantBodySchema,
   sessionDetailSchema,
   sessionListItemSchema,
+  sessionStandingRowSchema,
+  sessionStandingsResponseSchema,
   updateSessionBodySchema,
   type AddParticipantsBody,
   type CreateSessionBody,
