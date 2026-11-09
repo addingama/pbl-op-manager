@@ -29,7 +29,11 @@ export function levenshtein(a: string, b: string): number {
       const prevRow = matrix[i - 1];
       const curRow = matrix[i];
       if (!prevRow || !curRow) continue;
-      curRow[j] = Math.min(prevRow[j]! + 1, curRow[j - 1]! + 1, prevRow[j - 1]! + cost);
+      const up = prevRow[j];
+      const left = curRow[j - 1];
+      const diag = prevRow[j - 1];
+      if (up === undefined || left === undefined || diag === undefined) continue;
+      curRow[j] = Math.min(up + 1, left + 1, diag + cost);
     }
   }
   const last = matrix[a.length];

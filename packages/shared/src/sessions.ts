@@ -19,7 +19,7 @@ export const participantStatusSchema = z.enum([
   'REMOVED',
 ]);
 
-const startsAtSchema = z.union([z.string().datetime(), z.coerce.date()]).transform((v) => {
+const startsAtSchema = z.union([z.iso.datetime(), z.coerce.date()]).transform((v) => {
   const d = v instanceof Date ? v : new Date(v);
   if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
   return d.toISOString();
