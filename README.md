@@ -15,4 +15,6 @@ pnpm dev
 
 Full demo data (optional, wipes DB): `pnpm db:seed`.
 
+**Create a session (admin):** sign in → **Open Play** → **Create open play**.
+
 Production VPS: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Agent context: [AGENTS.md](AGENTS.md).

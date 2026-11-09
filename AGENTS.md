@@ -58,6 +58,7 @@ pnpm db:migrate / pnpm db:seed    # prisma migrate dev / deterministic dev seed 
 pnpm db:generate                  # Prisma client (Turborepo runs it before lint/typecheck/test)
 pnpm create-admin                 # bootstrap first admin (CREATE_ADMIN_* or --email/--password)
 pnpm dev                          # full local stack (see above); open http://127.0.0.1:3000
+# Admin: sign in → Open Play → Create open play (/sessions/new)
 pnpm --filter @pbl/api start      # API only on PORT (default 3001)
 pnpm --filter @pbl/web dev        # web only on 3000
 ```

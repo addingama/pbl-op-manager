@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@pbl/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@pbl/ui';
 import Link from 'next/link';
 import { getAdminSession } from '@/lib/auth';
 import { formatSessionWhen, listSessions } from '@/lib/sessions';
@@ -11,9 +11,16 @@ export default async function SessionsPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold tracking-tight">{messages.sessions.title}</h1>
       {admin !== null ? (
-        <p className="text-sm text-slate-600" data-testid="admin-banner">
-          {messages.nav.adminSignedIn}: {admin.displayName}
-        </p>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-slate-600" data-testid="admin-banner">
+            {messages.nav.adminSignedIn}: {admin.displayName}
+          </p>
+          <Button asChild className="min-h-11 w-full">
+            <Link href="/sessions/new" data-testid="create-session-cta">
+              {messages.sessions.createCta}
+            </Link>
+          </Button>
+        </div>
       ) : null}
       {sessions.length === 0 ? (
         <Card>
