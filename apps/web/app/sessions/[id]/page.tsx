@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ParticipantManager } from '@/components/participant-manager';
+import { SessionParticipantAdmin } from '@/components/session-participant-admin';
 import { SessionRounds } from '@/components/session-rounds';
 import { getAdminSession } from '@/lib/auth';
 import { partitionParticipants } from '@/lib/session-detail';
@@ -104,7 +104,7 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
       </section>
 
       {admin !== null ? (
-        <ParticipantManager
+        <SessionParticipantAdmin
           sessionId={session.id}
           initialParticipants={session.participants.map((p) => ({ ...p }))}
         />
