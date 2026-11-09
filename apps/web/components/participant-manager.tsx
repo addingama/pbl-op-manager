@@ -1,6 +1,10 @@
 'use client';
 
-import { type AddParticipantsBody, type PlayerListItem } from '@pbl/shared';
+import {
+  type AddParticipantsBody,
+  createPlayerResponseSchema,
+  type PlayerListItem,
+} from '@pbl/shared';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@pbl/ui';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -29,21 +33,25 @@ export function ParticipantManager({ sessionId, initialParticipants }: Participa
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [addNewPlayerToSession, setAddNewPlayerToSession] = useState(true);
 
   useEffect(() => {
     setParticipants(initialParticipants);
   }, [initialParticipants]);
 
-  useEffect(() => {
-    void (async () => {
-      const res = await clientJson('/api/players', { method: 'GET' });
-      if (res.ok) {
-        const row = objectRecord(res.data);
-        const list = row?.['players'];
-        if (Array.isArray(list)) setPlayers(list as PlayerRow[]);
-      }
-    })();
+  const loadPlayers = useCallback(async () => {
+    const res = await clientJson('/api/players', { method: 'GET' });
+    if (res.ok) {
+      const row = objectRecord(res.data);
+      const list = row?.['players'];
+      if (Array.isArray(list)) setPlayers(list as PlayerRow[]);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadPlayers();
+  }, [loadPlayers]);
 
   const inSession = useMemo(
     () => new Set(participants.filter((p) => p.status !== 'REMOVED').map((p) => p.playerId)),
@@ -87,6 +95,76 @@ export function ParticipantManager({ sessionId, initialParticipants }: Participa
     [router],
   );
 
+  const addPlayerIds = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return true;
+      const body: AddParticipantsBody = { playerIds: ids };
+      const res = await clientJson(`/api/sessions/${sessionId}/participants`, {
+        method: 'POST',
+        headers: {
+          ...csrfMutationHeaders(),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setError(res.message);
+        return false;
+      }
+      const row = objectRecord(res.data);
+      const created = row?.['participants'];
+      const added = Array.isArray(created) ? created.map((item) => parseParticipant(item)) : [];
+      setParticipants((curr) => {
+        const without = curr.filter((p) => !p.id.startsWith('optimistic-'));
+        const merged = new Map(without.map((p) => [p.playerId, p]));
+        for (const p of added) merged.set(p.playerId, p);
+        return [...merged.values()];
+      });
+      setFeedback(messages.sessionDetail.added);
+      return true;
+    },
+    [sessionId],
+  );
+
+  const createPlayer = useCallback(async () => {
+    const name = newPlayerName.trim();
+    if (name === '') return;
+    setError(null);
+    setFeedback(null);
+    setPending(true);
+    const res = await clientJson('/api/players', {
+      method: 'POST',
+      headers: { ...csrfMutationHeaders(), 'content-type': 'application/json' },
+      body: JSON.stringify({ displayName: name }),
+    });
+    if (!res.ok) {
+      setPending(false);
+      setError(res.message);
+      return;
+    }
+    const { player, warnings } = createPlayerResponseSchema.parse(res.data);
+    setPlayers((curr) =>
+      [...curr, player].sort((a, b) => a.displayName.localeCompare(b.displayName)),
+    );
+    setNewPlayerName('');
+    setPending(false);
+    if (warnings !== undefined && warnings.length > 0) {
+      setFeedback(
+        `${messages.sessionDetail.createPlayerCreated} (${warnings[0]?.players.map((p) => p.displayName).join(', ') ?? 'similar names exist'})`,
+      );
+    } else {
+      setFeedback(messages.sessionDetail.createPlayerCreated);
+    }
+    if (addNewPlayerToSession && !inSession.has(player.id)) {
+      setPending(true);
+      const ok = await addPlayerIds([player.id]);
+      setPending(false);
+      if (ok) router.refresh();
+    } else {
+      router.refresh();
+    }
+  }, [addNewPlayerToSession, addPlayerIds, inSession, newPlayerName, router]);
+
   const addSelected = useCallback(async () => {
     const ids = [...selected];
     if (ids.length === 0) return;
@@ -113,31 +191,10 @@ export function ParticipantManager({ sessionId, initialParticipants }: Participa
         setParticipants(before);
       },
       async () => {
-        const body: AddParticipantsBody = { playerIds: ids };
-        const res = await clientJson(`/api/sessions/${sessionId}/participants`, {
-          method: 'POST',
-          headers: {
-            ...csrfMutationHeaders(),
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) {
-          setError(res.message);
-          return false;
-        }
-        const row = objectRecord(res.data);
-        const created = row?.['participants'];
-        const added = Array.isArray(created) ? created.map((item) => parseParticipant(item)) : [];
-        setParticipants((curr) => {
-          const without = curr.filter((p) => !p.id.startsWith('optimistic-'));
-          return [...without, ...added];
-        });
-        setFeedback(messages.sessionDetail.added);
-        return true;
+        return addPlayerIds(ids);
       },
     );
-  }, [participants, players, runMutation, selected, sessionId]);
+  }, [addPlayerIds, participants, players, runMutation, selected]);
 
   const removeParticipant = useCallback(
     async (playerId: string) => {
@@ -252,6 +309,41 @@ export function ParticipantManager({ sessionId, initialParticipants }: Participa
       </CardHeader>
       <CardContent className="space-y-4">
         <MutationFeedback error={error} feedback={feedback} pending={pending} />
+        <div className="space-y-2 rounded-lg border border-dashed border-slate-300 p-3">
+          <p className="text-sm font-medium text-slate-800">{messages.sessionDetail.createPlayerTitle}</p>
+          <label className="flex flex-col gap-1 text-sm">
+            {messages.sessionDetail.createPlayerName}
+            <Input
+              value={newPlayerName}
+              maxLength={120}
+              data-testid="create-player-name"
+              onChange={(e) => {
+                setNewPlayerName(e.target.value);
+              }}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={addNewPlayerToSession}
+              onChange={(e) => {
+                setAddNewPlayerToSession(e.target.checked);
+              }}
+            />
+            {messages.sessionDetail.createPlayerAddToSession}
+          </label>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pending || newPlayerName.trim() === ''}
+            data-testid="create-player-submit"
+            onClick={() => {
+              void createPlayer();
+            }}
+          >
+            {messages.sessionDetail.createPlayerSubmit}
+          </Button>
+        </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-800" htmlFor="player-search">
             {messages.sessionDetail.searchPlayers}
