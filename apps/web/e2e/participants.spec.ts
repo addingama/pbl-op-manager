@@ -43,4 +43,36 @@ test.describe('participant management', () => {
     await expect(page.getByTestId('participant-feedback')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId(`participant-${player.player.id}`)).toBeVisible();
   });
+
+  test('admin creates a player from session detail New player form', async ({ page, context }) => {
+    const login = await context.request.post('/api/auth/login', {
+      headers: { ...csrfHeaders, 'content-type': 'application/json' },
+      data: { email: adminEmail, password: adminPassword },
+    });
+    expect(login.ok()).toBeTruthy();
+
+    const sessionRes = await context.request.post('/api/sessions', {
+      headers: { ...csrfHeaders, 'content-type': 'application/json' },
+      data: {
+        title: `E2E Create Player ${String(Date.now())}`,
+        startsAt: new Date(Date.now() + 86_400_000).toISOString(),
+        courtCount: 2,
+        visibility: 'PUBLIC',
+      },
+    });
+    expect(sessionRes.ok()).toBeTruthy();
+    const session = (await sessionRes.json()) as { id: string };
+    const newName = `E2E Inline ${String(Date.now())}`;
+
+    await page.goto(`/sessions/${session.id}`);
+    const section = page.getByTestId('create-player-section');
+    await expect(section).toBeVisible();
+    await section.getByTestId('create-player-name').fill(newName);
+    await section.getByTestId('create-player-submit').click();
+    await expect(page.getByTestId('create-player-feedback')).toBeVisible({ timeout: 15_000 });
+    await section.getByTestId('create-player-name').fill(newName.slice(0, 4));
+    await expect(page.getByTestId('player-search')).toBeVisible();
+    await page.getByTestId('player-search').fill(newName.slice(0, 6));
+    await expect(page.getByRole('checkbox', { name: newName })).toBeVisible({ timeout: 10_000 });
+  });
 });

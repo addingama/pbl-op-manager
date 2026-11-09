@@ -51,6 +51,7 @@ export const messages = {
     searchPlayers: 'Search players',
     createPlayerTitle: 'New player',
     createPlayerName: 'Display name',
+    createPlayerNameRequired: 'Enter a display name.',
     createPlayerSubmit: 'Create player',
     createPlayerAddToSession: 'Add to this session',
     createPlayerCreated: 'Player created.',

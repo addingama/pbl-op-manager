@@ -6,7 +6,7 @@ import { Button, Input } from '@pbl/ui';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clientJson, csrfMutationHeaders } from '@/lib/api/client';
-import { messages } from '@/messages';
+import { messageForErrorCode, messages } from '@/messages';
 
 interface CreatePlayerInlineProps {
   readonly sessionId: string;
@@ -61,38 +61,50 @@ export function CreatePlayerInline({
 
   const createPlayer = useCallback(async () => {
     const name = newPlayerName.trim();
-    if (name === '') return;
+    if (name === '') {
+      setError(messages.sessionDetail.createPlayerNameRequired);
+      return;
+    }
     setError(null);
     setFeedback(null);
     setPending(true);
-    const res = await clientJson('/api/players', {
-      method: 'POST',
-      headers: { ...csrfMutationHeaders(), 'content-type': 'application/json' },
-      body: JSON.stringify({ displayName: name }),
-    });
-    if (!res.ok) {
+    try {
+      const res = await clientJson('/api/players', {
+        method: 'POST',
+        headers: { ...csrfMutationHeaders(), 'content-type': 'application/json' },
+        body: JSON.stringify({ displayName: name }),
+      });
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      let player: { id: string; displayName: string };
+      let warnings: ReturnType<typeof createPlayerResponseSchema.parse>['warnings'];
+      try {
+        ({ player, warnings } = createPlayerResponseSchema.parse(res.data));
+      } catch {
+        setError(messageForErrorCode('INTERNAL_ERROR'));
+        return;
+      }
+      setNewPlayerName('');
+      if (warnings !== undefined && warnings.length > 0) {
+        setFeedback(
+          `${messages.sessionDetail.createPlayerCreated} (${warnings[0]?.players.map((p) => p.displayName).join(', ') ?? 'similar names exist'})`,
+        );
+      } else {
+        setFeedback(messages.sessionDetail.createPlayerCreated);
+      }
+      onPlayerCreated?.();
+      if (addNewPlayerToSession && !inSession.has(player.id)) {
+        const ok = await addPlayerToSession(player.id);
+        if (ok) router.refresh();
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setError(messageForErrorCode('INTERNAL_ERROR'));
+    } finally {
       setPending(false);
-      setError(res.message);
-      return;
-    }
-    const { player, warnings } = createPlayerResponseSchema.parse(res.data);
-    setNewPlayerName('');
-    setPending(false);
-    if (warnings !== undefined && warnings.length > 0) {
-      setFeedback(
-        `${messages.sessionDetail.createPlayerCreated} (${warnings[0]?.players.map((p) => p.displayName).join(', ') ?? 'similar names exist'})`,
-      );
-    } else {
-      setFeedback(messages.sessionDetail.createPlayerCreated);
-    }
-    onPlayerCreated?.();
-    if (addNewPlayerToSession && !inSession.has(player.id)) {
-      setPending(true);
-      const ok = await addPlayerToSession(player.id);
-      setPending(false);
-      if (ok) router.refresh();
-    } else {
-      router.refresh();
     }
   }, [
     addNewPlayerToSession,
@@ -105,7 +117,7 @@ export function CreatePlayerInline({
 
   return (
     <section
-      className="space-y-2 rounded-lg border border-dashed border-slate-300 p-3"
+      className="relative z-10 space-y-2 rounded-lg border border-dashed border-slate-300 bg-white p-3"
       aria-labelledby="create-player-title"
       data-testid="create-player-section"
     >
@@ -123,38 +135,49 @@ export function CreatePlayerInline({
           {feedback}
         </p>
       ) : null}
-      <label className="flex flex-col gap-1 text-sm">
-        {messages.sessionDetail.createPlayerName}
-        <Input
-          value={newPlayerName}
-          maxLength={120}
-          data-testid="create-player-name"
-          onChange={(e) => {
-            setNewPlayerName(e.target.value);
-          }}
-        />
-      </label>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={addNewPlayerToSession}
-          onChange={(e) => {
-            setAddNewPlayerToSession(e.target.checked);
-          }}
-        />
-        {messages.sessionDetail.createPlayerAddToSession}
-      </label>
-      <Button
-        type="button"
-        variant="secondary"
-        disabled={pending || newPlayerName.trim() === ''}
-        data-testid="create-player-submit"
-        onClick={() => {
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
           void createPlayer();
         }}
       >
-        {messages.sessionDetail.createPlayerSubmit}
-      </Button>
+        <label className="flex flex-col gap-1 text-sm" htmlFor="create-player-display-name">
+          {messages.sessionDetail.createPlayerName}
+          <Input
+            id="create-player-display-name"
+            name="displayName"
+            value={newPlayerName}
+            maxLength={120}
+            autoComplete="off"
+            required
+            disabled={pending}
+            data-testid="create-player-name"
+            onChange={(e) => {
+              setNewPlayerName(e.target.value);
+              if (error !== null) setError(null);
+            }}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={addNewPlayerToSession}
+            disabled={pending}
+            onChange={(e) => {
+              setAddNewPlayerToSession(e.target.checked);
+            }}
+          />
+          {messages.sessionDetail.createPlayerAddToSession}
+        </label>
+        <Button
+          type="submit"
+          disabled={pending}
+          data-testid="create-player-submit"
+        >
+          {messages.sessionDetail.createPlayerSubmit}
+        </Button>
+      </form>
     </section>
   );
 }
