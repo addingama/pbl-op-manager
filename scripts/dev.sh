@@ -16,5 +16,8 @@ echo "Applying migrations…"
 pnpm db:generate
 pnpm db:deploy
 
+echo "Ensuring dev admin exists…"
+pnpm --filter @pbl/api ensure-dev-admin
+
 echo "Starting API (3001) and web (3000)…"
 exec pnpm exec turbo run dev --filter=@pbl/api --filter=@pbl/web --parallel

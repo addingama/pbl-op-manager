@@ -8,8 +8,11 @@ function apiBaseUrl(): string {
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const cookieStore = await cookies();
   const headers = new Headers(init?.headers);
-  const cookieHeader = cookieStore.toString();
-  if (cookieHeader) headers.set('cookie', cookieHeader);
+  const cookieHeader = cookieStore
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join('; ');
+  if (cookieHeader !== '') headers.set('cookie', cookieHeader);
   return fetch(`${apiBaseUrl()}${path}`, {
     ...init,
     headers,
